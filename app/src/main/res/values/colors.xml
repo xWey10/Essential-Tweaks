@@ -1,0 +1,9 @@
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<resources>
+    <color name="surface">#FAFAFA</color>
+    <color name="foreground">#191919</color>
+    <color name="secondary">#646464</color>
+    <color name="divider">#E2E2E2</color>
+    <color name="accent">#BE2626</color>
+    <color name="launcher_background">#171717</color>
+</resources>

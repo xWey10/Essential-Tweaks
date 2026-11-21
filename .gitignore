@@ -1,0 +1,38 @@
+# Gradle / Android / IDE
+.gradle/
+.kotlin/
+**/build/
+local.properties
+.idea/
+*.iml
+.externalNativeBuild/
+.cxx/
+.cxx/**
+
+# Signing keys and signing secrets
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+*.asc
+key.properties
+keystore.properties
+*.env
+.env
+.env.*
+!.env.example
+
+# Generated and local files
+artifacts/
+*.apk
+*.aab
+*.apks
+*.log
+*.hprof
+__pycache__/
+*.pyc
+.DS_Store
+
+docs/

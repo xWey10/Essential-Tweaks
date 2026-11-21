@@ -1,0 +1,53 @@
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<resources>
+    <string name="app_name" translatable="false">Essential Tweaks</string>
+    <string name="module_description">Small, independent extensions for Nothing OS. Power menu, fingerprint and charging info.</string>
+    <string name="system">System</string>
+    <string name="power_menu">Power menu</string>
+    <string name="power_menu_summary">Recovery, Bootloader and System UI</string>
+    <string name="recovery" translatable="false">Recovery</string>
+    <string name="bootloader" translatable="false">Bootloader</string>
+    <string name="show_recovery">Show Recovery</string>
+    <string name="show_bootloader">Show Bootloader</string>
+    <string name="recovery_summary">Reboot into recovery</string>
+    <string name="bootloader_summary">Reboot into bootloader (fastboot)</string>
+    <string name="apply_note">Changes apply when you next open the power menu. Unlock the device to use these actions.</string>
+    <string name="root_note">If SystemUI needs root, your root manager will request it after you confirm a reboot.</string>
+    <string name="active">Active</string>
+    <string name="inactive">Inactive / Requires setup</string>
+    <string name="checking">Checking SystemUI…</string>
+    <string name="setup_note">Enable Essential Tweaks in LSPosed for System UI and this app. Reboot once, then open the app again.</string>
+    <string name="unsupported_note">The power menu signature is unsupported. See the EssentialTweaks LSPosed log.</string>
+    <string name="sync_note">Settings have not reached SystemUI. Reopen the app and check the LSPosed log.</string>
+    <string name="save_failed">Could not save this setting. Please try again.</string>
+    <string name="back">Back</string>
+    <string name="reboot_to">Reboot to %1$s?</string>
+    <string name="confirm_recovery">The device will restart into recovery. This action does not erase your data.</string>
+    <string name="confirm_bootloader">The device will restart into bootloader (fastboot), not fastbootd.</string>
+    <string name="reboot">Reboot</string>
+    <string name="cancel">Cancel</string>
+    <string name="unlock_required">Unlock the device and open the power menu again.</string>
+    <string name="action_unavailable">This action is unavailable. Check the EssentialTweaks LSPosed log.</string>
+    <string name="settings_unavailable">Could not read settings. Open Essential Tweaks and try again.</string>
+    <string name="root_failed">Could not reboot. Check SystemUI root permission in your root manager and the Essential Tweaks log.</string>
+    <string name="reboot_timeout">No reboot response received. Check the device state before trying again.</string>
+    <string name="request_expired">Confirmation expired. Open the power menu and try again.</string>
+    <string name="restart_system_ui">Restart System UI</string>
+    <string name="restart_system_ui_summary">Reload the status bar and lock screen</string>
+    <string name="show_restart_system_ui">Show Restart System UI</string>
+    <string name="restart">Restart</string>
+    <string name="confirm_system_ui">The status bar and lock screen may disappear briefly while System UI restarts.</string>
+    <string name="crop_icon">Crop fingerprint image</string>
+    <string name="crop_hint">Move the circle over the area to keep. Use the slider to resize it.</string>
+    <string name="crop_diameter">Crop diameter</string>
+    <string name="updates">Updates</string>
+    <string name="update_available">Update available</string>
+    <string name="update_available_summary">Version %1$s is available on GitHub · View release</string>
+    <string name="check_updates">Check for updates</string>
+    <string name="update_checking">Checking GitHub Releases…</string>
+    <string name="update_failed">Could not check · Tap to retry</string>
+    <string name="update_current">No newer stable release in the last successful check</string>
+    <string name="update_check_summary">Check GitHub Releases manually</string>
+    <string name="auto_check_updates">Check automatically when opening the app</string>
+    <string name="update_open_failed">Could not open a browser</string>
+</resources>

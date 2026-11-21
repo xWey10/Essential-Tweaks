@@ -1,0 +1,4 @@
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<resources>
+    <bool name="light_system_bars">false</bool>
+</resources>

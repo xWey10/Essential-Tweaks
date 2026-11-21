@@ -1,0 +1,19 @@
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<resources>
+    <bool name="light_system_bars">true</bool>
+    <style name="Theme.EssentialTweaks" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowBackground">@color/surface</item>
+        <item name="android:colorBackground">@color/surface</item>
+        <item name="colorBackgroundFloating">@color/surface</item>
+        <item name="android:textColorPrimary">@color/foreground</item>
+        <item name="android:textColorSecondary">@color/secondary</item>
+        <item name="colorAccent">@color/foreground</item>
+        <item name="colorControlActivated">@color/foreground</item>
+        <item name="android:windowLightStatusBar">@bool/light_system_bars</item>
+        <item name="android:windowLightNavigationBar">@bool/light_system_bars</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
+</resources>
