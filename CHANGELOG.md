@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.2 — Beta
+
+- Added Camera progress ring modes for battery and media and moved the ring to a passive SystemUI window.
+- Added a gesture bar drawing toggle, plus upload and download rates next to the status bar clock.
+- Added available RAM, per-app memory and app shortcuts in Nothing Launcher Recents.
+
 ## 0.3.1 — Status bar and lock screen
 
 - Drag the sample widget rows to reorder the lock screen. Added an optional estimate of time to empty.

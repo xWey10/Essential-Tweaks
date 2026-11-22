@@ -50,6 +50,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.ViewModelProvider
 import moe.xWey10.tweaks.R
+import moe.xWey10.tweaks.core.CameraRingMode
 import moe.xWey10.tweaks.core.DotsMode
 import moe.xWey10.tweaks.core.EssentialTarget
 import moe.xWey10.tweaks.core.FingerprintImage
@@ -76,7 +77,8 @@ class MainActivity : AppCompatActivity() {
         HOME(R.string.app_name), POWER(R.string.power_menu),
         FINGERPRINT(R.string.fingerprint),
         LOCKSCREEN(R.string.lockscreen_gestures), ESSENTIAL_KEY(R.string.essential_key),
-        SCREENSHOTS(R.string.screenshots), STATUS_BAR(R.string.status_bar)
+        SCREENSHOTS(R.string.screenshots), STATUS_BAR(R.string.status_bar),
+        NAVIGATION(R.string.gesture_navigation), RECENTS(R.string.recents)
     }
 
     private lateinit var config: LocalConfig
@@ -228,6 +230,7 @@ class MainActivity : AppCompatActivity() {
         main.postDelayed(timeout, 2000)
         sendBroadcast(Intent(Protocol.QUERY).setPackage(Protocol.SYSTEM_UI).putExtra("nonce", nonce),
             null, BroadcastOptions.makeBasic().setShareIdentityEnabled(true).toBundle())
+        sendBroadcast(Intent(Protocol.QUERY).setPackage(Protocol.NOTHING_LAUNCHER))
     }
 
     private fun render() {
@@ -305,13 +308,36 @@ class MainActivity : AppCompatActivity() {
                 saveTweaks(tweaks.current.copy(clockSeconds = it))
             })
             content.addView(divider())
-            content.addView(toggleRow(R.string.cutout_ring, tweaks.current.cutoutRing) {
-                saveTweaks(tweaks.current.copy(cutoutRing = it))
+            addCameraRing(content)
+            content.addView(divider())
+            content.addView(toggleRow(R.string.status_network_speed, tweaks.current.statusNetworkSpeed) {
+                saveTweaks(tweaks.current.copy(statusNetworkSpeed = it))
             })
             content.addView(divider())
             addStatusAction(content)
             content.addView(divider())
             content.addView(text(getString(R.string.status_bar_note), 14f, secondary = true).apply {
+                setPadding(0, dp(16), 0, 0)
+            })
+        } else if (page == Page.NAVIGATION) {
+            content.addView(toggleRow(R.string.hide_gesture_handle, tweaks.current.hideGestureHandle) {
+                saveTweaks(tweaks.current.copy(hideGestureHandle = it))
+            })
+            content.addView(text(getString(R.string.gesture_navigation_note), 14f, secondary = true))
+        } else if (page == Page.RECENTS) {
+            content.addView(toggleRow(R.string.recents_available_ram, tweaks.current.recentsAvailableRam) {
+                saveTweaks(tweaks.current.copy(recentsAvailableRam = it))
+            })
+            content.addView(divider())
+            content.addView(toggleRow(R.string.recents_app_ram, tweaks.current.recentsAppRam) {
+                saveTweaks(tweaks.current.copy(recentsAppRam = it))
+            })
+            content.addView(divider())
+            content.addView(toggleRow(R.string.recents_actions, tweaks.current.recentsActions) {
+                saveTweaks(tweaks.current.copy(recentsActions = it))
+            })
+            content.addView(divider())
+            content.addView(text(getString(R.string.recents_note), 14f, secondary = true).apply {
                 setPadding(0, dp(16), 0, 0)
             })
         } else if (page == Page.SCREENSHOTS) {
@@ -340,6 +366,10 @@ class MainActivity : AppCompatActivity() {
             content.addView(sectionRow(Page.SCREENSHOTS, R.drawable.ic_screenshot, R.string.screenshot_summary))
             content.addView(divider())
             content.addView(sectionRow(Page.STATUS_BAR, R.drawable.ic_status_bar, R.string.status_bar_summary))
+            content.addView(divider())
+            content.addView(sectionRow(Page.NAVIGATION, R.drawable.ic_gesture_navigation, R.string.gesture_navigation_summary))
+            content.addView(divider())
+            content.addView(sectionRow(Page.RECENTS, R.drawable.ic_recents, R.string.recents_summary))
             content.addView(divider())
             addUpdateSettings(content)
         }
@@ -763,6 +793,23 @@ class MainActivity : AppCompatActivity() {
             EssentialKeyCapture.NOTIFICATIONS to R.string.key_action_notifications,
             EssentialKeyCapture.CAMERA to R.string.key_action_camera,
         )
+
+    private fun addCameraRing(content: LinearLayout) {
+        val modes = CameraRingMode.entries
+        val labels = intArrayOf(R.string.camera_ring_off, R.string.camera_ring_battery,
+            R.string.camera_ring_media, R.string.camera_ring_auto).map(::getString).toTypedArray()
+        val selected = modes.indexOf(tweaks.current.cameraRing)
+        content.addView(actionRow(R.string.camera_ring, labels[selected]) {
+            AlertDialog.Builder(this)
+                .setTitle(R.string.camera_ring)
+                .setSingleChoiceItems(labels, selected) { dialog, index ->
+                    dialog.dismiss()
+                    saveTweaks(tweaks.current.copy(cameraRing = modes[index]))
+                }
+                .setNegativeButton(R.string.cancel, null)
+                .show()
+        })
+    }
 
     private fun addStatusAction(content: LinearLayout) {
         val s = tweaks.current

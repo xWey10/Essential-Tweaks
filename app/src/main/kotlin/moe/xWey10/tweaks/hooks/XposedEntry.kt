@@ -3,6 +3,7 @@
 
 package moe.xWey10.tweaks.hooks
 
+import android.annotation.SuppressLint
 import android.app.Application
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -22,7 +23,10 @@ import moe.xWey10.tweaks.features.lockscreen.DoubleTapSleep
 import moe.xWey10.tweaks.features.lockscreen.DoubleTapWake
 import moe.xWey10.tweaks.features.powermenu.PowerMenuFeature
 import moe.xWey10.tweaks.features.screenshot.ScreenshotFeature
-import moe.xWey10.tweaks.features.statusbar.CutoutBatteryRing
+import moe.xWey10.tweaks.features.navigation.GestureHandle
+import moe.xWey10.tweaks.features.recents.RecentsFeature
+import moe.xWey10.tweaks.features.statusbar.CameraRing
+import moe.xWey10.tweaks.features.statusbar.NetworkSpeed
 import moe.xWey10.tweaks.features.statusbar.StatusBarTweaks
 
 class XposedEntry : IXposedHookLoadPackage, IXposedHookZygoteInit {
@@ -36,6 +40,10 @@ class XposedEntry : IXposedHookLoadPackage, IXposedHookZygoteInit {
         if (param.packageName == "android" && param.processName in setOf("android", "system_server")) {
             ScreenshotFeature.install(param.classLoader)
             EssentialKeyPolicy.install(param.classLoader)
+            return
+        }
+        if (param.packageName == Protocol.NOTHING_LAUNCHER && param.processName == Protocol.NOTHING_LAUNCHER) {
+            installRecents(param.classLoader)
             return
         }
         if (param.packageName != Protocol.SYSTEM_UI || param.processName != Protocol.SYSTEM_UI) return
@@ -55,7 +63,8 @@ class XposedEntry : IXposedHookLoadPackage, IXposedHookZygoteInit {
                 ChargingFeature(param.classLoader, reader).install()
                 DoubleTapWake(param.classLoader, reader).install()
                 DoubleTapSleep(param.classLoader, reader).install()
-                CutoutBatteryRing(param.classLoader, reader).install()
+                GestureHandle(param.classLoader, reader).install()
+                NetworkSpeed(param.classLoader, reader).install()
                 StatusBarTweaks(param.classLoader, reader, essentialKey).install()
             }
         } catch (error: Throwable) {
@@ -72,6 +81,7 @@ class XposedEntry : IXposedHookLoadPackage, IXposedHookZygoteInit {
                         try {
                             StatusBridge(health, config, tweaks).register(context)
                             tweaks?.let { reader ->
+                                CameraRing(context, reader).install()
                                 reader.refresh(context)
                                 context.registerReceiver(object : BroadcastReceiver() {
                                     override fun onReceive(context: Context, intent: Intent) {
@@ -84,5 +94,21 @@ class XposedEntry : IXposedHookLoadPackage, IXposedHookZygoteInit {
                     }
                 })
         } catch (error: Throwable) { HookLog.error("Could not attach status bridge", error) }
+    }
+
+    @SuppressLint("DiscouragedPrivateApi") // The LSPosed callback runs after the launcher attaches its context.
+    private fun installRecents(loader: ClassLoader) {
+        val reader = TweakReader()
+        RecentsFeature(loader, reader, modulePath).install()
+        FeatureHooks("Launcher settings").install {
+            add(Application::class.java.getDeclaredMethod("attach", Context::class.java)) { param ->
+                val context = param.args[0] as Context
+                if (context.packageName != Protocol.NOTHING_LAUNCHER) return@add
+                reader.refresh(context)
+                context.registerReceiver(object : BroadcastReceiver() {
+                    override fun onReceive(context: Context, intent: Intent) = reader.refresh(context)
+                }, IntentFilter(Protocol.QUERY), Protocol.QUERY_PERMISSION, null, Context.RECEIVER_EXPORTED)
+            }
+        }
     }
 }

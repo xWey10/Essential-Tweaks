@@ -44,6 +44,13 @@ internal class ModuleText(private val context: Context, private val modulePath: 
                 R.string.reboot_permission_denied -> "SystemUI refused the reboot request. See the LSPosed log; no root request was made."
                 R.string.reboot_failed -> "Could not reboot via SystemUI. See the EssentialTweaks LSPosed log."
                 R.string.reboot_timeout -> "No reboot response received. Check the device before trying again."
+                R.string.recents_available_ram_value -> "Available RAM: %s / %s GiB"
+                R.string.recents_app_ram_value -> "RAM usage: %s"
+                R.string.recents_action_info -> "Info"
+                R.string.recents_action_app_info -> "App info"
+                R.string.recents_action_copy -> "Copy ID"
+                R.string.recents_action_copy_package -> "Copy package name"
+                R.string.recents_action_unavailable -> "Action unavailable"
                 else -> "Action unavailable. Check the EssentialTweaks LSPosed log."
             }
             return if (args.isEmpty()) fallback else String.format(fallback, *args)

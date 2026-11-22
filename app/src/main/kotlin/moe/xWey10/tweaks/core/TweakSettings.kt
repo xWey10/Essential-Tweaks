@@ -8,6 +8,7 @@ import moe.xWey10.tweaks.features.essentialkey.EssentialKeyGesture
 import org.json.JSONObject
 
 enum class DotsMode { STOCK, CUSTOM, RANDOM }
+enum class CameraRingMode { OFF, BATTERY, MEDIA, AUTO }
 
 enum class RecorderFormat { AAC_M4A, OPUS_OGG, AMR_3GP }
 enum class RecorderQuality { LOW, NORMAL, HIGH }
@@ -42,7 +43,12 @@ data class TweakSettings(
     val essentialTargets: Map<EssentialKeyGesture, EssentialTarget> = emptyMap(),
     val brightnessSwipe: Boolean = false,
     val clockSeconds: Boolean = false,
-    val cutoutRing: Boolean = false,
+    val cameraRing: CameraRingMode = CameraRingMode.OFF,
+    val hideGestureHandle: Boolean = false,
+    val statusNetworkSpeed: Boolean = false,
+    val recentsAvailableRam: Boolean = false,
+    val recentsAppRam: Boolean = false,
+    val recentsActions: Boolean = false,
     val dischargeEta: Boolean = false,
     val statusAction: EssentialKeyCapture = EssentialKeyCapture.NONE,
     val statusSleep: Boolean = false,
@@ -81,7 +87,12 @@ data class TweakSettings(
         put(ALLOW_SCREENSHOTS, allowScreenshots)
         put("brightnessSwipe", brightnessSwipe)
         put("clockSeconds", clockSeconds)
-        put("cutoutRing", cutoutRing)
+        put("cameraRing", cameraRing.name)
+        put("hideGestureHandle", hideGestureHandle)
+        put("statusNetworkSpeed", statusNetworkSpeed)
+        put("recentsAvailableRam", recentsAvailableRam)
+        put("recentsAppRam", recentsAppRam)
+        put("recentsActions", recentsActions)
         put("dischargeEta", dischargeEta)
         put("statusAction", statusAction.name)
         put("statusSleep", statusSleep)
@@ -146,7 +157,13 @@ data class TweakSettings(
                 allowScreenshots = json.optBoolean(ALLOW_SCREENSHOTS),
                 brightnessSwipe = json.optBoolean("brightnessSwipe"),
                 clockSeconds = json.optBoolean("clockSeconds"),
-                cutoutRing = json.optBoolean("cutoutRing"),
+                cameraRing = CameraRingMode.entries.firstOrNull { it.name == json.optString("cameraRing") }
+                    ?: if (json.optBoolean("cutoutRing")) CameraRingMode.BATTERY else CameraRingMode.OFF,
+                hideGestureHandle = json.optBoolean("hideGestureHandle"),
+                statusNetworkSpeed = json.optBoolean("statusNetworkSpeed"),
+                recentsAvailableRam = json.optBoolean("recentsAvailableRam"),
+                recentsAppRam = json.optBoolean("recentsAppRam"),
+                recentsActions = json.optBoolean("recentsActions"),
                 dischargeEta = json.optBoolean("dischargeEta"),
                 statusAction = EssentialKeyCapture.entries.firstOrNull { it.name == json.optString("statusAction") } ?: EssentialKeyCapture.NONE,
                 statusSleep = json.optBoolean("statusSleep", json.optBoolean("statusDoubleTapSleep")),

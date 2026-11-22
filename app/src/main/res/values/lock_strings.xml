@@ -6,7 +6,6 @@
     <string name="lock_gap">Gap above fingerprint sensor</string>
     <string name="lock_widgets">Widgets</string>
     <string name="lock_layout">Layout editor</string>
-    <string name="cutout_ring">Battery ring around camera</string>
     <string name="status_action">Double tap on status bar</string>
     <string name="status_sleep">Turn screen off</string>
     <string name="drag_hint">Hold a row and drag it. Dimmed rows are disabled. Values are examples.</string>

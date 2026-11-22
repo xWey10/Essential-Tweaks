@@ -6,7 +6,6 @@
     <string name="lock_gap">Отступ над отпечатком</string>
     <string name="lock_widgets">Виджеты</string>
     <string name="lock_layout">Редактор расположения</string>
-    <string name="cutout_ring">Кольцо заряда вокруг камеры</string>
     <string name="status_action">Двойной тап по статус-бару</string>
     <string name="status_sleep">Выключить экран</string>
     <string name="drag_hint">Зажми строку и перетащи. Приглушённые строки выключены. Значения приведены для примера.</string>
