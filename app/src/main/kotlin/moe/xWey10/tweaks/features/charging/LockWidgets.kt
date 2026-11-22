@@ -38,12 +38,25 @@ internal class LockWidgets {
     fun format(ctx: Context, intent: Intent?, s: TweakSettings, charging: String): String {
         val lines = mutableMapOf('c' to charging)
         if (s.networkWidget) lines['n'] = network(ctx) else reset()
-        if (s.batteryWidget && intent != null) {
+        if ((s.batteryWidget || s.dischargeEta) && intent != null) {
             val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
             val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, 0)
             if (level >= 0 && scale > 0) {
                 val plugged = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) != 0
-                lines['b'] = (if (plugged) "⚡ " else "") + "${level * 100 / scale}%"
+                val pieces = mutableListOf<String>()
+                if (s.batteryWidget) pieces += (if (plugged) "⚡ " else "") + "${level * 100 / scale}%"
+                if (s.dischargeEta && !plugged) {
+                    val battery = ctx.getSystemService(BatteryManager::class.java)
+                    if (battery != null) {
+                        val charge = battery.getLongProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER)
+                        val average = battery.getLongProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_AVERAGE)
+                        val minutes = dischargeMinutes(charge, average) ?: dischargeMinutes(charge,
+                            battery.getLongProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW))
+                        if (minutes != null) pieces += String.format(ctx.resources.configuration.locales[0],
+                            "≈ %d:%02d → 0%%", minutes / 60, minutes % 60)
+                    }
+                }
+                lines['b'] = pieces.joinToString("   ·   ")
             }
         }
         if (s.systemWidget) {
@@ -56,4 +69,10 @@ internal class LockWidgets {
         }
         return s.widgetOrder.mapNotNull { lines[it]?.takeIf(String::isNotEmpty) }.joinToString("\n")
     }
+}
+
+/** Remaining charge (µAh) divided by average discharge current (µA). */
+internal fun dischargeMinutes(charge: Long, averageCurrent: Long): Long? {
+    if (charge !in 1..Int.MAX_VALUE.toLong() || averageCurrent !in -Int.MAX_VALUE.toLong()..-1L) return null
+    return (charge * 60 / -averageCurrent).coerceAtLeast(1)
 }

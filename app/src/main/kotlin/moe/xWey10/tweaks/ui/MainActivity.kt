@@ -305,9 +305,11 @@ class MainActivity : AppCompatActivity() {
                 saveTweaks(tweaks.current.copy(clockSeconds = it))
             })
             content.addView(divider())
-            content.addView(toggleRow(R.string.status_double_tap_sleep, tweaks.current.statusDoubleTapSleep) {
-                saveTweaks(tweaks.current.copy(statusDoubleTapSleep = it))
+            content.addView(toggleRow(R.string.cutout_ring, tweaks.current.cutoutRing) {
+                saveTweaks(tweaks.current.copy(cutoutRing = it))
             })
+            content.addView(divider())
+            addStatusAction(content)
             content.addView(divider())
             content.addView(text(getString(R.string.status_bar_note), 14f, secondary = true).apply {
                 setPadding(0, dp(16), 0, 0)
@@ -554,48 +556,16 @@ class MainActivity : AppCompatActivity() {
         heading(R.string.lock_widgets)
         toggle(R.string.lock_net, s.networkWidget) { tweaks.current.copy(networkWidget = it) }
         toggle(R.string.lock_bat, s.batteryWidget) { tweaks.current.copy(batteryWidget = it) }
+        toggle(R.string.discharge_eta, s.dischargeEta) { tweaks.current.copy(dischargeEta = it) }
         toggle(R.string.lock_sys, s.systemWidget) { tweaks.current.copy(systemWidget = it) }
         heading(R.string.lock_layout)
-        val rows = mapOf('c' to R.string.charging_info, 'b' to R.string.lock_bat,
-            'n' to R.string.lock_net, 's' to R.string.lock_sys)
-        val order = s.widgetOrder
-        val names = order.map { getString(rows.getValue(it)) }
-        content.addView(actionRow(R.string.lock_order, names.joinToString(" · ")) {
-            AlertDialog.Builder(this).setTitle(R.string.lock_move).setItems(names.toTypedArray()) { _, from ->
-                AlertDialog.Builder(this).setTitle(R.string.lock_position)
-                    .setItems(names.indices.map { (it + 1).toString() }.toTypedArray()) { _, to ->
-                        val reordered = order.toMutableList()
-                        reordered.add(to, reordered.removeAt(from))
-                        saveTweaks(tweaks.current.copy(widgetOrder = reordered.joinToString("")))
-                    }.show()
-            }.show()
+        content.addView(text(getString(R.string.drag_hint), 14f, secondary = true))
+        content.addView(LayoutPreview(this, s) { order ->
+            saveTweaks(tweaks.current.copy(widgetOrder = order))
         })
         number(R.string.lock_gap, listOf(8, 16, 32, 56), s.layoutGap, "dp") { tweaks.current.copy(layoutGap = it) }
         content.addView(divider())
-        heading(R.string.lock_clock)
-        number(R.string.lock_scale, listOf(65, 80, 90, 100, 110, 115), s.clockScale, "%") { tweaks.current.copy(clockScale = it) }
-        number(R.string.lock_offset, listOf(-24, -12, 0, 12, 24), s.clockOffset, "dp") { tweaks.current.copy(clockOffset = it) }
-        choice(R.string.lock_style, listOf(getString(R.string.lock_native), "Sans", "Mono"), s.lockStyle) {
-            saveTweaks(tweaks.current.copy(lockStyle = it))
-        }
-        toggle(R.string.lock_seconds, s.lockSeconds) { tweaks.current.copy(lockSeconds = it) }
-        content.addView(divider())
-        heading(R.string.lock_shortcuts)
-        fun slot(title: Int, current: String, change: (String) -> TweakSettings) {
-            val keys = listOf("", ":settings", ":alarms")
-            val namesList = listOf(R.string.lock_native, R.string.lock_settings, R.string.lock_alarms,
-                R.string.key_pick_app).map(::getString)
-            val summary = namesList.getOrNull(keys.indexOf(current)) ?: current
-            content.addView(actionRow(title, summary) {
-                AlertDialog.Builder(this).setTitle(title).setItems(namesList.toTypedArray()) { _, index ->
-                    if (index < keys.size) saveTweaks(change(keys[index]))
-                    else chooseTarget(EssentialKeyCapture.LAUNCH_APP) { saveTweaks(change(it.packageName)) }
-                }.show()
-            })
-        }
-        slot(R.string.lock_start, s.leftSlot) { tweaks.current.copy(leftSlot = it) }
-        slot(R.string.lock_end, s.rightSlot) { tweaks.current.copy(rightSlot = it) }
-        content.addView(text(getString(R.string.lock_note), 14f, secondary = true))
+
     }
 
     private fun addChargingSettings(content: LinearLayout) {
@@ -783,15 +753,7 @@ class MainActivity : AppCompatActivity() {
             setOnClickListener { toggle.isChecked = !toggle.isChecked }
         }
 
-    private fun addEssentialKey(content: LinearLayout) {
-        val gestureTitles = mapOf(
-            EssentialKeyGesture.PRESS to R.string.key_press,
-            EssentialKeyGesture.DOUBLE_PRESS to R.string.key_double_press,
-            EssentialKeyGesture.HOLD to R.string.key_hold,
-            EssentialKeyGesture.PRESS_AND_HOLD to R.string.key_press_hold,
-            EssentialKeyGesture.DOUBLE_PRESS_AND_HOLD to R.string.key_double_press_hold,
-        )
-        val actions = mapOf(
+    private val captureTitles = mapOf(
             EssentialKeyCapture.NONE to R.string.key_action_none,
             EssentialKeyCapture.SCREENSHOT to R.string.key_action_screenshot,
             EssentialKeyCapture.RECORD to R.string.key_action_record,
@@ -801,6 +763,40 @@ class MainActivity : AppCompatActivity() {
             EssentialKeyCapture.NOTIFICATIONS to R.string.key_action_notifications,
             EssentialKeyCapture.CAMERA to R.string.key_action_camera,
         )
+
+    private fun addStatusAction(content: LinearLayout) {
+        val s = tweaks.current
+        val actions = captureTitles.keys.toList()
+        val labels = actions.map { getString(captureTitles.getValue(it)) } + getString(R.string.status_sleep)
+        val selected = if (s.statusSleep) actions.size else actions.indexOf(s.statusAction)
+        val target = s.statusTarget
+        val targetLabel = listOf(target.packageName, target.className.substringAfterLast('.'))
+            .filter { it.isNotEmpty() }.joinToString(" / ")
+        val summary = listOf(labels[selected], targetLabel).filter { it.isNotEmpty() }.joinToString(" · ")
+        content.addView(actionRow(R.string.status_action, summary) {
+            AlertDialog.Builder(this).setTitle(R.string.status_action)
+                .setSingleChoiceItems(labels.toTypedArray(), selected) { dialog, i ->
+                    dialog.dismiss()
+                    val action = actions.getOrNull(i) ?: EssentialKeyCapture.NONE
+                    fun save(target: EssentialTarget) = saveTweaks(tweaks.current.copy(
+                        statusAction = action, statusSleep = i == actions.size, statusTarget = target))
+                    if (action == EssentialKeyCapture.LAUNCH_APP || action == EssentialKeyCapture.LAUNCH_ACTIVITY)
+                        chooseTarget(action, ::save)
+                    else save(EssentialTarget(""))
+                }.setNegativeButton(android.R.string.cancel, null).show()
+        })
+        if (s.statusAction == EssentialKeyCapture.SOUND_RECORDER) addRecorderSettings(content)
+    }
+
+    private fun addEssentialKey(content: LinearLayout) {
+        val gestureTitles = mapOf(
+            EssentialKeyGesture.PRESS to R.string.key_press,
+            EssentialKeyGesture.DOUBLE_PRESS to R.string.key_double_press,
+            EssentialKeyGesture.HOLD to R.string.key_hold,
+            EssentialKeyGesture.PRESS_AND_HOLD to R.string.key_press_hold,
+            EssentialKeyGesture.DOUBLE_PRESS_AND_HOLD to R.string.key_double_press_hold,
+        )
+        val actions = captureTitles
         gestureTitles.forEach { (gesture, title) ->
             val selected = tweaks.current.essentialKey[gesture] ?: EssentialKeyCapture.NONE
             val target = tweaks.current.essentialTargets[gesture]

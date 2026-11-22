@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.1 — Status bar and lock screen
+
+- Drag the sample widget rows to reorder the lock screen. Added an optional estimate of time to empty.
+- Clock and shortcut configuration is handled by Nothing OS.
+- Assign an action to a status bar double tap, or show a charge ring around a camera cutout.
+
 ## 0.3.0 — Lock screen customization
 
 - Added the Android charge-time estimate and event-driven battery updates.

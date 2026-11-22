@@ -34,12 +34,6 @@ data class TweakSettings(
     val systemWidget: Boolean = false,
     val widgetOrder: String = "cbns",
     val layoutGap: Int = 8,
-    val clockScale: Int = 100,
-    val clockOffset: Int = 0,
-    val lockStyle: Int = 0,
-    val lockSeconds: Boolean = false,
-    val leftSlot: String = "",
-    val rightSlot: String = "",
     val aod: Boolean = false,
     val doubleTapWake: Boolean = false,
     val doubleTapSleep: Boolean = false,
@@ -48,7 +42,11 @@ data class TweakSettings(
     val essentialTargets: Map<EssentialKeyGesture, EssentialTarget> = emptyMap(),
     val brightnessSwipe: Boolean = false,
     val clockSeconds: Boolean = false,
-    val statusDoubleTapSleep: Boolean = false,
+    val cutoutRing: Boolean = false,
+    val dischargeEta: Boolean = false,
+    val statusAction: EssentialKeyCapture = EssentialKeyCapture.NONE,
+    val statusSleep: Boolean = false,
+    val statusTarget: EssentialTarget = EssentialTarget(""),
     val recorderFormat: RecorderFormat = RecorderFormat.AAC_M4A,
     val recorderQuality: RecorderQuality = RecorderQuality.NORMAL,
     val recorderDestination: RecorderDestination = RecorderDestination.MUSIC,
@@ -77,19 +75,18 @@ data class TweakSettings(
         put("systemWidget", systemWidget)
         put("widgetOrder", widgetOrder)
         put("layoutGap", layoutGap)
-        put("clockScale", clockScale)
-        put("clockOffset", clockOffset)
-        put("lockStyle", lockStyle)
-        put("lockSeconds", lockSeconds)
-        put("leftSlot", leftSlot)
-        put("rightSlot", rightSlot)
         put("aod", aod)
         put("doubleTapWake", doubleTapWake)
         put("doubleTapSleep", doubleTapSleep)
         put(ALLOW_SCREENSHOTS, allowScreenshots)
         put("brightnessSwipe", brightnessSwipe)
         put("clockSeconds", clockSeconds)
-        put("statusDoubleTapSleep", statusDoubleTapSleep)
+        put("cutoutRing", cutoutRing)
+        put("dischargeEta", dischargeEta)
+        put("statusAction", statusAction.name)
+        put("statusSleep", statusSleep)
+        put("statusPackage", statusTarget.packageName)
+        put("statusClass", statusTarget.className)
         put("recorderFormat", recorderFormat.name)
         put("recorderQuality", recorderQuality.name)
         put("recorderDestination", recorderDestination.name)
@@ -143,19 +140,17 @@ data class TweakSettings(
                 systemWidget = json.optBoolean("systemWidget", false),
                 widgetOrder = json.optString("widgetOrder", "cbns").takeIf { it.length == 4 && it.toSet() == "cbns".toSet() } ?: "cbns",
                 layoutGap = json.optInt("layoutGap", 8).coerceIn(8, 56),
-                clockScale = json.optInt("clockScale", 100).coerceIn(65, 115),
-                clockOffset = json.optInt("clockOffset", 0).coerceIn(-24, 24),
-                lockStyle = json.optInt("lockStyle", 0).coerceIn(0, 2),
-                lockSeconds = json.optBoolean("lockSeconds", false),
-                leftSlot = json.optString("leftSlot", "").take(200),
-                rightSlot = json.optString("rightSlot", "").take(200),
                 aod = json.optBoolean("aod"),
                 doubleTapWake = json.optBoolean("doubleTapWake"),
                 doubleTapSleep = json.optBoolean("doubleTapSleep"),
                 allowScreenshots = json.optBoolean(ALLOW_SCREENSHOTS),
                 brightnessSwipe = json.optBoolean("brightnessSwipe"),
                 clockSeconds = json.optBoolean("clockSeconds"),
-                statusDoubleTapSleep = json.optBoolean("statusDoubleTapSleep"),
+                cutoutRing = json.optBoolean("cutoutRing"),
+                dischargeEta = json.optBoolean("dischargeEta"),
+                statusAction = EssentialKeyCapture.entries.firstOrNull { it.name == json.optString("statusAction") } ?: EssentialKeyCapture.NONE,
+                statusSleep = json.optBoolean("statusSleep", json.optBoolean("statusDoubleTapSleep")),
+                statusTarget = EssentialTarget(json.optString("statusPackage").take(200), json.optString("statusClass").take(300)),
                 recorderFormat = RecorderFormat.entries.firstOrNull { it.name == json.optString("recorderFormat") }
                     ?: RecorderFormat.AAC_M4A,
                 recorderQuality = RecorderQuality.entries.firstOrNull { it.name == json.optString("recorderQuality") }

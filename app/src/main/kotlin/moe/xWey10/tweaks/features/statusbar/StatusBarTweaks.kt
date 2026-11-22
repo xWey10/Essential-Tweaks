@@ -2,6 +2,9 @@
 // Copyright (C) 2026 xWey10
 package moe.xWey10.tweaks.features.statusbar
 
+import moe.xWey10.tweaks.features.essentialkey.EssentialKeySystemUi
+import moe.xWey10.tweaks.features.essentialkey.EssentialKeyCapture
+import moe.xWey10.tweaks.features.lockscreen.TapSequence
 import android.hardware.display.DisplayManager
 import android.os.PowerManager
 import android.os.SystemClock
@@ -21,13 +24,12 @@ import java.util.WeakHashMap
 import kotlin.math.abs
 
 /** Optional status-bar gestures. Process-local; neither su nor input injection is used. */
-internal class StatusBarTweaks(private val loader: ClassLoader, private val reader: TweakReader) {
+internal class StatusBarTweaks(private val loader: ClassLoader, private val reader: TweakReader,
+    private val actions: EssentialKeySystemUi) {
     private data class Swipe(val x: Float, val y: Float, val start: Float, var value: Float,
         var active: Boolean = false)
     private val swipes = WeakHashMap<View, Swipe>()
-    private data class Tap(var downX: Float = 0f, var downY: Float = 0f, var downAt: Long = 0L,
-        var lastUpAt: Long = 0L, var lastX: Float = 0f, var lastY: Float = 0f)
-    private val taps = WeakHashMap<View, Tap>()
+    private val taps = WeakHashMap<View, TapSequence>()
     private var sleepFailureLogged = false
     private val clocks = Collections.newSetFromMap(WeakHashMap<Any, Boolean>())
     private var brightnessErrorLogged = false
@@ -45,10 +47,11 @@ internal class StatusBarTweaks(private val loader: ClassLoader, private val read
                 if (!statusBar.isInstance(view)) return@add // inherited method is shared by many views
                 val event = param.args[0] as MotionEvent
                 if (!reader.settings.brightnessSwipe) swipes.remove(view)
-                if (!reader.settings.statusDoubleTapSleep) taps.remove(view)
+                val doubleTapEnabled = reader.settings.statusSleep || reader.settings.statusAction != EssentialKeyCapture.NONE
+                if (!doubleTapEnabled) taps.remove(view)
                 val brightnessConsumed = reader.settings.brightnessSwipe && onSwipe(view, event, dispatch)
-                val sleepConsumed = !brightnessConsumed && reader.settings.statusDoubleTapSleep &&
-                    onDoubleTap(view, event)
+                val sleepConsumed = !brightnessConsumed && doubleTapEnabled &&
+                    onDoubleTap(view, event, dispatch)
                 if (brightnessConsumed || sleepConsumed) param.result = true
             }
             HookLog.info("Status bar touch hook on ${dispatch.declaringClass.name}.${dispatch.name}")
@@ -90,43 +93,47 @@ internal class StatusBarTweaks(private val loader: ClassLoader, private val read
         }.onFailure { HookLog.error("Could not update seconds on OEM clock", it) }
     }
 
-    private fun onDoubleTap(view: View, event: MotionEvent): Boolean {
+    private fun onDoubleTap(view: View, event: MotionEvent, dispatch: Method): Boolean {
         if (event.pointerCount != 1) {
             taps.remove(view)
             return false
         }
-        val tap = taps.getOrPut(view) { Tap() }
+        val tap = taps.getOrPut(view) {
+            val config = ViewConfiguration.get(view.context)
+            TapSequence(config.scaledTouchSlop, config.scaledDoubleTapSlop,
+                ViewConfiguration.getDoubleTapTimeout().toLong())
+        }
         when (event.actionMasked) {
-            MotionEvent.ACTION_DOWN -> {
-                tap.downX = event.x; tap.downY = event.y; tap.downAt = event.eventTime
-            }
-            MotionEvent.ACTION_UP -> {
-                val slop = ViewConfiguration.get(view.context).scaledTouchSlop * 2f
-                if (event.eventTime - tap.downAt > 250 ||
-                    abs(event.x - tap.downX) > slop || abs(event.y - tap.downY) > slop) {
-                    tap.lastUpAt = 0
-                    return false
-                }
-                val isDouble = tap.lastUpAt > 0 && event.eventTime - tap.lastUpAt <
-                    ViewConfiguration.getDoubleTapTimeout() &&
-                    abs(event.x - tap.lastX) < slop * 2 && abs(event.y - tap.lastY) < slop * 2
-                tap.lastUpAt = event.eventTime; tap.lastX = event.x; tap.lastY = event.y
-                if (isDouble) {
-                    tap.lastUpAt = 0
+            MotionEvent.ACTION_DOWN -> tap.down(event.x, event.y, event.eventTime)
+            MotionEvent.ACTION_MOVE -> tap.move(event.x, event.y)
+            MotionEvent.ACTION_CANCEL -> tap.reset()
+            MotionEvent.ACTION_UP -> if (tap.up(event.x, event.y, event.eventTime)) {
+                cancelNative(dispatch, view, event)
+                val settings = reader.settings
+                if (settings.statusSleep) {
                     runCatching {
                         val power = checkNotNull(view.context.getSystemService(PowerManager::class.java))
-                        // Privileged SystemUI PowerManager; the module app never needs DEVICE_POWER.
                         XposedHelpers.callMethod(power, "goToSleep", SystemClock.uptimeMillis())
                     }.onFailure {
                         if (!sleepFailureLogged) HookLog.error("Status bar double tap sleep unavailable", it)
                         sleepFailureLogged = true
                     }
-                    return true
+                } else {
+                    actions.perform(view.context, settings.statusAction,
+                        settings.statusTarget.packageName, settings.statusTarget.className)
                 }
+                return true
             }
-            MotionEvent.ACTION_CANCEL -> tap.lastUpAt = 0
         }
         return false
+    }
+
+    private fun cancelNative(dispatch: Method, view: View, event: MotionEvent) {
+        val cancel = MotionEvent.obtain(event)
+        try {
+            cancel.action = MotionEvent.ACTION_CANCEL
+            XposedBridge.invokeOriginalMethod(dispatch, view, arrayOf(cancel))
+        } finally { cancel.recycle() }
     }
 
     private fun onSwipe(view: View, event: MotionEvent, dispatch: Method): Boolean {
@@ -153,11 +160,7 @@ internal class StatusBarTweaks(private val loader: ClassLoader, private val read
                     swipe.active = true
                     // Invalidate any pending click/tap handled by the original status bar view.
                     taps.remove(view)
-                    val cancel = MotionEvent.obtain(event)
-                    try {
-                        cancel.action = MotionEvent.ACTION_CANCEL
-                        XposedBridge.invokeOriginalMethod(dispatch, view, arrayOf(cancel))
-                    } finally { cancel.recycle() }
+                    cancelNative(dispatch, view, event)
                 }
                 swipe.value = (swipe.start + dx / view.width.coerceAtLeast(1)).coerceIn(.02f, 1f)
                 setBrightness(view, swipe.value, temporary = true)

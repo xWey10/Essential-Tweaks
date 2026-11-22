@@ -48,4 +48,13 @@ class BatteryMetricsTest {
         assertEquals("", battery.copy(charging = false).format(selected, Locale.US))
         assertEquals("", battery.format(selected.copy(eta = false), Locale.US))
     }
+
+    @Test fun dischargeUsesRemainingChargeAndRejectsMissingOrChargingReadings() {
+        assertEquals(240L, dischargeMinutes(2_000_000L, -500_000L))
+        assertEquals(null, dischargeMinutes(2_000_000L, -2147483648L))
+        assertEquals(null, dischargeMinutes(2_000_000L, Long.MIN_VALUE))
+        assertEquals(null, dischargeMinutes(2_000_000L, 0))
+        assertEquals(null, dischargeMinutes(2_000_000L, 500_000L))
+        assertEquals(null, dischargeMinutes(-1, -500_000L))
+    }
 }

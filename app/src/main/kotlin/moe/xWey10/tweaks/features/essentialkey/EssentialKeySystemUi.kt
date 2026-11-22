@@ -52,69 +52,70 @@ internal class EssentialKeySystemUi(private val loader: ClassLoader) {
     }
 
     fun register(context: Context) {
-        val power = context.getSystemService(PowerManager::class.java)
-        val keyguard = context.getSystemService(KeyguardManager::class.java)
-        val loggedFailures = mutableSetOf<EssentialKeyCapture>()
         context.registerReceiver(object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
                 if (intent.action != Protocol.ESSENTIAL_KEY_CAPTURE || sentFromUid != Process.SYSTEM_UID) return
                 val action = EssentialKeyCapture.entries.firstOrNull {
                     it.name == intent.getStringExtra(Protocol.ESSENTIAL_KEY_ACTION)
                 } ?: return
-                if (action == EssentialKeyCapture.NONE) return
-                runCatching {
-                    if (power?.isInteractive != true || keyguard?.isKeyguardLocked != false) return
-                    when (action) {
-                        EssentialKeyCapture.SCREENSHOT -> checkNotNull(screenshot).invoke()
-                        EssentialKeyCapture.RECORD -> checkNotNull(record).invoke()
-                        EssentialKeyCapture.LAUNCH_APP -> {
-                            val pkg = intent.getStringExtra(Protocol.ESSENTIAL_KEY_PACKAGE).orEmpty()
-                            check(pkg.matches(PACKAGE_PATTERN))
-                            val launch = checkNotNull(context.packageManager.getLaunchIntentForPackage(pkg))
-                            context.startActivity(launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                        }
-                        EssentialKeyCapture.LAUNCH_ACTIVITY -> {
-                            val pkg = intent.getStringExtra(Protocol.ESSENTIAL_KEY_PACKAGE).orEmpty()
-                            val clazz = intent.getStringExtra(Protocol.ESSENTIAL_KEY_CLASS).orEmpty()
-                            check(pkg.matches(PACKAGE_PATTERN) && clazz.length in 1..300)
-                            val component = ComponentName(pkg, clazz)
-                            val info = context.packageManager.getActivityInfo(component, 0)
-                            // Refuse private/disabled components, even though the hook runs in SystemUI.
-                            check(info.enabled && info.exported)
-                            context.startActivity(Intent(Intent.ACTION_MAIN).setComponent(component)
-                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                        }
-                        EssentialKeyCapture.SOUND_RECORDER -> {
-                            val appId = "moe.xWey10.tweaks"
-                            if (context.packageManager.checkPermission(Manifest.permission.RECORD_AUDIO, appId) !=
-                                PackageManager.PERMISSION_GRANTED) {
-                                Toast.makeText(context,
-                                    "Essential Tweaks: allow microphone access in Essential Key settings",
-                                    Toast.LENGTH_LONG).show()
-                                return
-                            }
-                            // SystemUI starts the protected foreground service directly; no Activity/task switch.
-                            context.startForegroundService(Intent(RecorderService.ACTION_TOGGLE)
-                                .setClassName(appId, RecorderService::class.java.name))
-                        }
-                        EssentialKeyCapture.NOTIFICATIONS -> {
-                            val statusBar = context.getSystemService(StatusBarManager::class.java)
-                                ?: error("Status bar service unavailable")
-                            XposedHelpers.callMethod(statusBar, "expandNotificationsPanel")
-                        }
-                        EssentialKeyCapture.CAMERA -> {
-                            context.startActivity(Intent(MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA)
-                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                        }
-                        EssentialKeyCapture.NONE -> Unit
-                    }
-                }.onFailure {
-                    if (loggedFailures.add(action)) HookLog.error("Essential Key action unavailable: ${action.name}", it)
-                    Toast.makeText(context, "Essential Tweaks: action unavailable", Toast.LENGTH_SHORT).show()
-                }
+                perform(context, action, intent.getStringExtra(Protocol.ESSENTIAL_KEY_PACKAGE).orEmpty(),
+                    intent.getStringExtra(Protocol.ESSENTIAL_KEY_CLASS).orEmpty())
             }
         }, IntentFilter(Protocol.ESSENTIAL_KEY_CAPTURE), "android.permission.DEVICE_POWER", null,
             Context.RECEIVER_EXPORTED)
+    }
+
+    private val loggedFailures = mutableSetOf<EssentialKeyCapture>()
+
+    fun perform(context: Context, action: EssentialKeyCapture, pkg: String, clazz: String) {
+        if (action == EssentialKeyCapture.NONE) return
+        runCatching {
+            if (context.getSystemService(PowerManager::class.java)?.isInteractive != true || context.getSystemService(KeyguardManager::class.java)?.isKeyguardLocked != false) return
+            when (action) {
+                EssentialKeyCapture.SCREENSHOT -> checkNotNull(screenshot).invoke()
+                EssentialKeyCapture.RECORD -> checkNotNull(record).invoke()
+                EssentialKeyCapture.LAUNCH_APP -> {
+                    check(pkg.matches(PACKAGE_PATTERN))
+                    val launch = checkNotNull(context.packageManager.getLaunchIntentForPackage(pkg))
+                    context.startActivity(launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                }
+                EssentialKeyCapture.LAUNCH_ACTIVITY -> {
+                    check(pkg.matches(PACKAGE_PATTERN) && clazz.length in 1..300)
+                    val component = ComponentName(pkg, clazz)
+                    val info = context.packageManager.getActivityInfo(component, 0)
+                    // Refuse private/disabled components, even though the hook runs in SystemUI.
+                    check(info.enabled && info.exported)
+                    context.startActivity(Intent(Intent.ACTION_MAIN).setComponent(component)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                }
+                EssentialKeyCapture.SOUND_RECORDER -> {
+                    val appId = "moe.xWey10.tweaks"
+                    if (context.packageManager.checkPermission(Manifest.permission.RECORD_AUDIO, appId) !=
+                        PackageManager.PERMISSION_GRANTED) {
+                        Toast.makeText(context,
+                            "Essential Tweaks: allow microphone access in Essential Key settings",
+                            Toast.LENGTH_LONG).show()
+                        return
+                    }
+                    // SystemUI starts the protected foreground service directly; no Activity/task switch.
+                    context.startForegroundService(Intent(RecorderService.ACTION_TOGGLE)
+                        .setClassName(appId, RecorderService::class.java.name))
+                }
+                EssentialKeyCapture.NOTIFICATIONS -> {
+                    val statusBar = context.getSystemService(StatusBarManager::class.java)
+                        ?: error("Status bar service unavailable")
+                    XposedHelpers.callMethod(statusBar, "expandNotificationsPanel")
+                }
+                EssentialKeyCapture.CAMERA -> {
+                    context.startActivity(Intent(MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                }
+                EssentialKeyCapture.NONE -> Unit
+            }
+        }.onFailure {
+            if (loggedFailures.add(action)) HookLog.error("Essential Key action unavailable: ${action.name}", it)
+            Toast.makeText(context, "Essential Tweaks: action unavailable", Toast.LENGTH_SHORT).show()
+        }
     }
 
     companion object {

@@ -19,11 +19,10 @@ import moe.xWey10.tweaks.features.essentialkey.EssentialKeyPolicy
 import moe.xWey10.tweaks.features.essentialkey.EssentialKeySystemUi
 import moe.xWey10.tweaks.features.fingerprint.FingerprintFeature
 import moe.xWey10.tweaks.features.lockscreen.DoubleTapSleep
-import moe.xWey10.tweaks.features.lockscreen.LockClock
-import moe.xWey10.tweaks.features.lockscreen.LockShortcuts
 import moe.xWey10.tweaks.features.lockscreen.DoubleTapWake
 import moe.xWey10.tweaks.features.powermenu.PowerMenuFeature
 import moe.xWey10.tweaks.features.screenshot.ScreenshotFeature
+import moe.xWey10.tweaks.features.statusbar.CutoutBatteryRing
 import moe.xWey10.tweaks.features.statusbar.StatusBarTweaks
 
 class XposedEntry : IXposedHookLoadPackage, IXposedHookZygoteInit {
@@ -54,11 +53,10 @@ class XposedEntry : IXposedHookLoadPackage, IXposedHookZygoteInit {
             TweakReader().also { reader ->
                 FingerprintFeature(param.classLoader, reader).install()
                 ChargingFeature(param.classLoader, reader).install()
-                LockClock(param.classLoader, reader).install()
-                LockShortcuts(param.classLoader, reader).install()
                 DoubleTapWake(param.classLoader, reader).install()
                 DoubleTapSleep(param.classLoader, reader).install()
-                StatusBarTweaks(param.classLoader, reader).install()
+                CutoutBatteryRing(param.classLoader, reader).install()
+                StatusBarTweaks(param.classLoader, reader, essentialKey).install()
             }
         } catch (error: Throwable) {
             HookLog.error("Could not initialize tweak settings", error)

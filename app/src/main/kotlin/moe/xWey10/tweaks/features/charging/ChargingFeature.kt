@@ -159,7 +159,7 @@ class ChargingFeature(private val loader: ClassLoader, private val tweaks: Tweak
             val settings = tweaks.settings
             if (disposed || !area.isAttachedToWindow || !visible() ||
                 !(settings.chargingEnabled && settings.hasMetrics || !dozing() &&
-                    (settings.networkWidget || settings.batteryWidget || settings.systemWidget))) return false
+                    (settings.networkWidget || settings.batteryWidget || settings.dischargeEta || settings.systemWidget))) return false
             return if (dozing()) {
                 settings.aod && area.javaClass.name == "com.android.systemui.keyguard.ui.view.KeyguardIndicationArea"
             } else {
