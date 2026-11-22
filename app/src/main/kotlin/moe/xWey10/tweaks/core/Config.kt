@@ -37,6 +37,9 @@ object ConfigKeys {
 object Protocol {
     const val SYSTEM_UI = "com.android.systemui"
     const val NOTHING_LAUNCHER = "com.nothing.launcher"
+    const val RESTART_LAUNCHER = "moe.xWey10.tweaks.RESTART_LAUNCHER"
+    const val RESTART_DEADLINE = "deadline"
+    const val RESTART_WINDOW_MS = 3000L
     const val REFRESH_SCREENSHOTS = "moe.xWey10.tweaks.REFRESH_SCREENSHOTS"
     const val ESSENTIAL_KEY_CAPTURE = "moe.xWey10.tweaks.ESSENTIAL_KEY_CAPTURE"
     const val ESSENTIAL_KEY_ACTION = "capture"

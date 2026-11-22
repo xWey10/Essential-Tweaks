@@ -35,25 +35,25 @@ internal class LockWidgets {
         return rate
     }
 
-    fun format(ctx: Context, intent: Intent?, s: TweakSettings, charging: String): String {
+    fun format(ctx: Context, intent: Intent?, s: TweakSettings, charging: String, fullTime: String?): String {
         val lines = mutableMapOf('c' to charging)
         if (s.networkWidget) lines['n'] = network(ctx) else reset()
-        if ((s.batteryWidget || s.dischargeEta) && intent != null) {
+        if ((s.batteryWidget || s.eta) && intent != null) {
             val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
             val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, 0)
             if (level >= 0 && scale > 0) {
                 val plugged = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) != 0
                 val pieces = mutableListOf<String>()
                 if (s.batteryWidget) pieces += (if (plugged) "⚡ " else "") + "${level * 100 / scale}%"
-                if (s.dischargeEta && !plugged) {
+                if (plugged && fullTime != null) pieces += fullTime
+                if (s.eta && !plugged) {
                     val battery = ctx.getSystemService(BatteryManager::class.java)
                     if (battery != null) {
                         val charge = battery.getLongProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER)
                         val average = battery.getLongProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_AVERAGE)
                         val minutes = dischargeMinutes(charge, average) ?: dischargeMinutes(charge,
                             battery.getLongProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW))
-                        if (minutes != null) pieces += String.format(ctx.resources.configuration.locales[0],
-                            "≈ %d:%02d → 0%%", minutes / 60, minutes % 60)
+                        if (minutes != null) pieces += formatBatteryTime(minutes, 0, ctx.resources.configuration.locales[0])
                     }
                 }
                 lines['b'] = pieces.joinToString("   ·   ")

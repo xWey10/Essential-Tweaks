@@ -4,7 +4,7 @@
 
 Essential Tweaks is an unofficial [LSPosed](https://github.com/LSPosed/LSPosed) module for Nothing OS on Android 16. It adds optional tweaks to the stock interface **without replacing System UI**.
 
-**Version:** 0.3.2 · **License:** [GPL-3.0-only](LICENSE) · **Status:** experimental
+**Version:** 0.3.5 · **License:** [GPL-3.0-only](LICENSE) · **Status:** experimental
 
 This project is not affiliated with or endorsed by Nothing or CMF. System hooks may stop working after an OS update; enable and test features individually.
 
@@ -16,7 +16,7 @@ This project is not affiliated with or endorsed by Nothing or CMF. System hooks 
 - **Essential Key:** assigns screenshots, screen recording, launching a selected app, an exported Activity, voice recording without opening an Activity, opening the camera or notification shade to press, double-press, hold, press-then-hold and double-press-then-hold gestures. The built-in audio recorder starts/stops on subsequent key activations. When assigned, its settings offer M4A/AAC, OGG/Opus or 3GP/AMR, quality, a preset or custom folder, and filename templates (for example, `Voice-{datetime}`). By default, recordings are stored in `Music/EssentialTweaks`. Grant microphone permission in the app settings before pressing the key. Android 16 may restrict background microphone service startup on some firmware; silent launch on all devices cannot be guaranteed. Android requires a microphone grant and an ongoing foreground-service notification while recording; this notification is unrelated to update checking. The Activity picker lists exported/enabled components; activities expecting private extras may not launch. The original Nothing behavior can be restored by re-enabling Essential Space and Essential Recorder and clearing custom assignments (may require root).
 - **Status bar:** brightness swipe, clock seconds, action on double tap and live upload/download speed. The camera progress ring shows battery level or playback progress for media sessions with a known duration.
 - **Gesture navigation:** hides the gesture bar drawing while keeping its touch area.
-- **Recents:** available RAM under Screenshot, per-app PSS in the card menu and optional App info / Copy ID buttons. Enable the **Nothing Launcher** scope (`com.nothing.launcher`) and restart the launcher.
+- **Recents:** available RAM under Screenshot, per-app PSS in the card menu and an optional Copy ID button. Enable the **Nothing Launcher** scope (`com.nothing.launcher`) and restart the launcher.
 - **Screenshots:** optional System Framework hook that relaxes `FLAG_SECURE` for application windows. It does **not** bypass DRM or guarantee capture in every app. Disabled by default; use only where you are permitted to capture content.
 - **Update checks:** checks published stable [GitHub Releases](https://github.com/xWey10/Essential-Tweaks/releases) and shows a newer version **inside the app only**. Automatic checks happen when the app opens, no more than once every 24 hours after a successful check; manual checking and an auto-check toggle are also available. No Android notifications, background update service or automatic APK installation. Checking contacts GitHub directly.
 

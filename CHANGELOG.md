@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.3.5 — Beta
+
+- Matched the camera progress indicator to the display cutout, with oval and capsule options and adjustable width and height.
+- Combined charge and discharge estimates into one lock-screen widget setting.
+- Added rootless launcher restart when the launcher hook is active, and short animations between settings pages.
+
+## 0.3.4 — Beta
+
+- Added Apply buttons that publish settings and restart the relevant launcher or System UI process on request.
+
+## 0.3.3 — Beta
+
+- Added adjustable camera ring size, shape, color, stroke, and screen-edge position.
+- Hid the home-handle drawing by resource ID in SystemUI and supported the launcher taskbar handle.
+- Matched Recents to the launcher styles, removed the duplicate Info action, and moved app RAM into the native card menu.
+- Improved icon contrast and separated Essential Key gesture assignments, stock behavior, and recorder options.
+
 ## 0.3.2 — Beta
 
 - Added Camera progress ring modes for battery and media and moved the ring to a passive SystemUI window.

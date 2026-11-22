@@ -1,5 +1,5 @@
 <resources>
-    <string name="lock_eta">Примерное время до 100%</string>
+    <string name="lock_eta">Время до полной зарядки или разряда</string>
     <string name="lock_net">Скорость сети</string>
     <string name="lock_bat">Уровень батареи и подключение питания</string>
     <string name="lock_sys">Память и процессор</string>
@@ -9,5 +9,4 @@
     <string name="status_action">Двойной тап по статус-бару</string>
     <string name="status_sleep">Выключить экран</string>
     <string name="drag_hint">Зажми строку и перетащи. Приглушённые строки выключены. Значения приведены для примера.</string>
-    <string name="discharge_eta">Примерное время до разряда</string>
 </resources>

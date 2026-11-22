@@ -1,5 +1,5 @@
 <resources>
-    <string name="lock_eta">Estimated time to full</string>
+    <string name="lock_eta">Estimated time to full or empty</string>
     <string name="lock_net">Network speed</string>
     <string name="lock_bat">Battery level and connection</string>
     <string name="lock_sys">Memory and processor</string>
@@ -9,5 +9,4 @@
     <string name="status_action">Double tap on status bar</string>
     <string name="status_sleep">Turn screen off</string>
     <string name="drag_hint">Hold a row and drag it. Dimmed rows are disabled. Values are examples.</string>
-    <string name="discharge_eta">Estimated time to empty</string>
 </resources>

@@ -4,16 +4,22 @@
 package moe.xWey10.tweaks.hooks
 
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.app.Application
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.os.Handler
+import android.os.Looper
+import android.os.Process
+import android.os.SystemClock
 import de.robv.android.xposed.IXposedHookLoadPackage
 import de.robv.android.xposed.IXposedHookZygoteInit
 import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedHelpers
 import de.robv.android.xposed.callbacks.XC_LoadPackage
+import moe.xWey10.tweaks.BuildConfig
 import moe.xWey10.tweaks.core.Protocol
 import moe.xWey10.tweaks.features.charging.ChargingFeature
 import moe.xWey10.tweaks.features.essentialkey.EssentialKeyPolicy
@@ -63,7 +69,7 @@ class XposedEntry : IXposedHookLoadPackage, IXposedHookZygoteInit {
                 ChargingFeature(param.classLoader, reader).install()
                 DoubleTapWake(param.classLoader, reader).install()
                 DoubleTapSleep(param.classLoader, reader).install()
-                GestureHandle(param.classLoader, reader).install()
+                GestureHandle(param.classLoader, reader).installSystemUi()
                 NetworkSpeed(param.classLoader, reader).install()
                 StatusBarTweaks(param.classLoader, reader, essentialKey).install()
             }
@@ -99,15 +105,40 @@ class XposedEntry : IXposedHookLoadPackage, IXposedHookZygoteInit {
     @SuppressLint("DiscouragedPrivateApi") // The LSPosed callback runs after the launcher attaches its context.
     private fun installRecents(loader: ClassLoader) {
         val reader = TweakReader()
+        GestureHandle(loader, reader).installLauncher()
         RecentsFeature(loader, reader, modulePath).install()
         FeatureHooks("Launcher settings").install {
             add(Application::class.java.getDeclaredMethod("attach", Context::class.java)) { param ->
                 val context = param.args[0] as Context
                 if (context.packageName != Protocol.NOTHING_LAUNCHER) return@add
                 reader.refresh(context)
+                val main = Handler(Looper.getMainLooper())
+                val filter = IntentFilter(Protocol.QUERY).apply { addAction(Protocol.RESTART_LAUNCHER) }
                 context.registerReceiver(object : BroadcastReceiver() {
-                    override fun onReceive(context: Context, intent: Intent) = reader.refresh(context)
-                }, IntentFilter(Protocol.QUERY), Protocol.QUERY_PERMISSION, null, Context.RECEIVER_EXPORTED)
+                    private var restartPending = false
+
+                    override fun onReceive(context: Context, intent: Intent) {
+                        if (intent.action == Protocol.QUERY) {
+                            reader.refresh(context)
+                            return
+                        }
+                        val deadline = intent.getLongExtra(Protocol.RESTART_DEADLINE, 0L)
+                        if (intent.action != Protocol.RESTART_LAUNCHER || !isOrderedBroadcast ||
+                            sentFromPackage != BuildConfig.APPLICATION_ID ||
+                            deadline - SystemClock.elapsedRealtime() !in 1L..Protocol.RESTART_WINDOW_MS
+                        ) return
+                        val appUid = runCatching {
+                            context.packageManager.getPackageUid(BuildConfig.APPLICATION_ID, 0)
+                        }.getOrNull() ?: return
+                        if (sentFromUid != appUid) return
+                        resultCode = Activity.RESULT_OK
+                        if (!restartPending) {
+                            restartPending = true
+                            // Let the ordered result reach Essential Tweaks before leaving the process.
+                            main.postDelayed({ Process.killProcess(Process.myPid()) }, 400)
+                        }
+                    }
+                }, filter, Protocol.QUERY_PERMISSION, main, Context.RECEIVER_EXPORTED)
             }
         }
     }

@@ -159,7 +159,7 @@ class ChargingFeature(private val loader: ClassLoader, private val tweaks: Tweak
             val settings = tweaks.settings
             if (disposed || !area.isAttachedToWindow || !visible() ||
                 !(settings.chargingEnabled && settings.hasMetrics || !dozing() &&
-                    (settings.networkWidget || settings.batteryWidget || settings.dischargeEta || settings.systemWidget))) return false
+                    (settings.networkWidget || settings.batteryWidget || settings.eta || settings.systemWidget))) return false
             return if (dozing()) {
                 settings.aod && area.javaClass.name == "com.android.systemui.keyguard.ui.view.KeyguardIndicationArea"
             } else {
@@ -192,9 +192,17 @@ class ChargingFeature(private val loader: ClassLoader, private val tweaks: Tweak
                 val text = runCatching {
                     val status = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
                     val locale = context.resources.configuration.locales[0]
-                    val chargingText = if (settings.chargingEnabled && settings.hasMetrics && status != null)
-                        readMetrics(status, battery, settings)?.format(settings, locale).orEmpty() else ""
-                    if (onAod) chargingText else widgets.format(context, status, settings, chargingText)
+                    val charging = status?.let(::isCharging) == true
+                    val remainingMillis = if (settings.eta && charging) {
+                        runCatching { battery?.computeChargeTimeRemaining() }.getOrNull()
+                    } else null
+                    val showMetrics = settings.chargingEnabled && settings.hasMetrics && status != null
+                    val chargingText = if (showMetrics) {
+                        readMetrics(requireNotNull(status), battery, settings, charging, remainingMillis)
+                            ?.format(settings, locale).orEmpty()
+                    } else ""
+                    val standaloneFullTime = if (chargingText.isEmpty()) timeToFull(remainingMillis, locale) else null
+                    if (onAod) chargingText else widgets.format(context, status, settings, chargingText, standaloneFullTime)
                 }.getOrDefault("")
                 main.post {
                     reading = false
@@ -310,11 +318,14 @@ class ChargingFeature(private val loader: ClassLoader, private val tweaks: Tweak
         }
     }
 
-    private fun readMetrics(status: Intent, battery: BatteryManager?, settings: TweakSettings): BatteryMetrics? {
+    private fun isCharging(status: Intent): Boolean = status.getBooleanExtra(BatteryManager.EXTRA_PRESENT, true) &&
+        status.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) != 0 &&
+        status.getIntExtra(BatteryManager.EXTRA_STATUS, BatteryManager.BATTERY_STATUS_UNKNOWN) ==
+            BatteryManager.BATTERY_STATUS_CHARGING
+
+    private fun readMetrics(status: Intent, battery: BatteryManager?, settings: TweakSettings,
+        charging: Boolean, remainingMillis: Long?): BatteryMetrics? {
         if (!status.getBooleanExtra(BatteryManager.EXTRA_PRESENT, true)) return null
-        val charging = status.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) != 0 &&
-            status.getIntExtra(BatteryManager.EXTRA_STATUS, BatteryManager.BATTERY_STATUS_UNKNOWN) ==
-                BatteryManager.BATTERY_STATUS_CHARGING
         if (settings.chargingOnly && !charging) return null
         val current = if (settings.current || settings.power) runCatching {
             battery?.getLongProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
@@ -325,7 +336,7 @@ class ChargingFeature(private val loader: ClassLoader, private val tweaks: Tweak
             deciCelsius = status.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, Int.MIN_VALUE)
                 .takeUnless { it == Int.MIN_VALUE },
             charging = charging,
-            remainingMillis = if (settings.eta && charging) runCatching { battery?.computeChargeTimeRemaining() }.getOrNull() else null,
+            remainingMillis = remainingMillis,
         )
     }
 }

@@ -9,6 +9,24 @@ import org.json.JSONObject
 
 enum class DotsMode { STOCK, CUSTOM, RANDOM }
 enum class CameraRingMode { OFF, BATTERY, MEDIA, AUTO }
+enum class CameraRingShape { CUTOUT, CIRCLE, OVAL, CAPSULE }
+
+data class CameraRingStyle(
+    val widthDp: Int = AUTO,
+    val heightDp: Int = AUTO,
+    val shape: CameraRingShape = CameraRingShape.CUTOUT,
+    val color: Int = -1,
+    val strokeDp: Int = 2,
+    val leftDp: Int = AUTO,
+    val topDp: Int = AUTO,
+) {
+    companion object {
+        const val AUTO = -1
+        val SIZE_DP = 16..128
+        val EDGE_DP = 0..2000
+        val STROKE_DP = 1..8
+    }
+}
 
 enum class RecorderFormat { AAC_M4A, OPUS_OGG, AMR_3GP }
 enum class RecorderQuality { LOW, NORMAL, HIGH }
@@ -44,12 +62,12 @@ data class TweakSettings(
     val brightnessSwipe: Boolean = false,
     val clockSeconds: Boolean = false,
     val cameraRing: CameraRingMode = CameraRingMode.OFF,
+    val cameraRingStyle: CameraRingStyle = CameraRingStyle(),
     val hideGestureHandle: Boolean = false,
     val statusNetworkSpeed: Boolean = false,
     val recentsAvailableRam: Boolean = false,
     val recentsAppRam: Boolean = false,
     val recentsActions: Boolean = false,
-    val dischargeEta: Boolean = false,
     val statusAction: EssentialKeyCapture = EssentialKeyCapture.NONE,
     val statusSleep: Boolean = false,
     val statusTarget: EssentialTarget = EssentialTarget(""),
@@ -88,12 +106,21 @@ data class TweakSettings(
         put("brightnessSwipe", brightnessSwipe)
         put("clockSeconds", clockSeconds)
         put("cameraRing", cameraRing.name)
+        put("cameraRingStyle", JSONObject().apply {
+            put("widthDp", cameraRingStyle.widthDp)
+            put("heightDp", cameraRingStyle.heightDp)
+            put("shape", cameraRingStyle.shape.name)
+            put("color", cameraRingStyle.color)
+            put("strokeDp", cameraRingStyle.strokeDp)
+            put("leftDp", cameraRingStyle.leftDp)
+            put("topDp", cameraRingStyle.topDp)
+        })
         put("hideGestureHandle", hideGestureHandle)
         put("statusNetworkSpeed", statusNetworkSpeed)
         put("recentsAvailableRam", recentsAvailableRam)
         put("recentsAppRam", recentsAppRam)
         put("recentsActions", recentsActions)
-        put("dischargeEta", dischargeEta)
+        put("dischargeEta", eta) // Older injected processes still read this key.
         put("statusAction", statusAction.name)
         put("statusSleep", statusSleep)
         put("statusPackage", statusTarget.packageName)
@@ -133,6 +160,10 @@ data class TweakSettings(
             require(json.optInt("schema") == 1)
             val key = json.optJSONObject(ESSENTIAL_KEY)
             val targets = json.optJSONObject("essentialTargets")
+            val ring = json.optJSONObject("cameraRingStyle")
+            fun ringDimension(key: String, valid: IntRange, defaultValue: Int = CameraRingStyle.AUTO): Int =
+                ring?.optInt(key, defaultValue)?.takeIf { it in valid } ?: CameraRingStyle.AUTO
+            val oldRingSize = ringDimension("sizeDp", CameraRingStyle.SIZE_DP)
             return TweakSettings(
                 dots = DotsMode.entries.firstOrNull { it.name == json.optString("dots") } ?: DotsMode.STOCK,
                 dotsColor = json.optInt("dotsColor", TweakSettings().dotsColor) or 0xFF000000.toInt(),
@@ -145,7 +176,7 @@ data class TweakSettings(
                 current = json.optBoolean("current", true),
                 power = json.optBoolean("power", true),
                 temperature = json.optBoolean("temperature", true),
-                eta = json.optBoolean("eta", false),
+                eta = json.optBoolean("eta") || json.optBoolean("dischargeEta"),
                 networkWidget = json.optBoolean("networkWidget", false),
                 batteryWidget = json.optBoolean("batteryWidget", false),
                 systemWidget = json.optBoolean("systemWidget", false),
@@ -159,12 +190,21 @@ data class TweakSettings(
                 clockSeconds = json.optBoolean("clockSeconds"),
                 cameraRing = CameraRingMode.entries.firstOrNull { it.name == json.optString("cameraRing") }
                     ?: if (json.optBoolean("cutoutRing")) CameraRingMode.BATTERY else CameraRingMode.OFF,
+                cameraRingStyle = CameraRingStyle(
+                    widthDp = ringDimension("widthDp", CameraRingStyle.SIZE_DP, oldRingSize),
+                    heightDp = ringDimension("heightDp", CameraRingStyle.SIZE_DP, oldRingSize),
+                    shape = CameraRingShape.entries.firstOrNull { it.name == ring?.optString("shape") }
+                        ?: CameraRingShape.CUTOUT,
+                    color = (ring?.optInt("color", -1) ?: -1) or 0xFF000000.toInt(),
+                    strokeDp = ring?.optInt("strokeDp", 2)?.coerceIn(CameraRingStyle.STROKE_DP) ?: 2,
+                    leftDp = ringDimension("leftDp", CameraRingStyle.EDGE_DP),
+                    topDp = ringDimension("topDp", CameraRingStyle.EDGE_DP),
+                ),
                 hideGestureHandle = json.optBoolean("hideGestureHandle"),
                 statusNetworkSpeed = json.optBoolean("statusNetworkSpeed"),
                 recentsAvailableRam = json.optBoolean("recentsAvailableRam"),
                 recentsAppRam = json.optBoolean("recentsAppRam"),
                 recentsActions = json.optBoolean("recentsActions"),
-                dischargeEta = json.optBoolean("dischargeEta"),
                 statusAction = EssentialKeyCapture.entries.firstOrNull { it.name == json.optString("statusAction") } ?: EssentialKeyCapture.NONE,
                 statusSleep = json.optBoolean("statusSleep", json.optBoolean("statusDoubleTapSleep")),
                 statusTarget = EssentialTarget(json.optString("statusPackage").take(200), json.optString("statusClass").take(300)),

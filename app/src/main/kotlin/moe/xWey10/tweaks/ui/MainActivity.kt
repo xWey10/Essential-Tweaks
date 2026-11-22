@@ -4,6 +4,7 @@
 package moe.xWey10.tweaks.ui
 
 import android.Manifest
+import android.animation.ValueAnimator
 import android.app.BroadcastOptions
 import android.content.BroadcastReceiver
 import android.content.ClipData
@@ -27,6 +28,7 @@ import android.text.InputType
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.DecelerateInterpolator
 import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.ImageView
@@ -51,6 +53,8 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.ViewModelProvider
 import moe.xWey10.tweaks.R
 import moe.xWey10.tweaks.core.CameraRingMode
+import moe.xWey10.tweaks.core.CameraRingShape
+import moe.xWey10.tweaks.core.CameraRingStyle
 import moe.xWey10.tweaks.core.DotsMode
 import moe.xWey10.tweaks.core.EssentialTarget
 import moe.xWey10.tweaks.core.FingerprintImage
@@ -78,11 +82,13 @@ class MainActivity : AppCompatActivity() {
         FINGERPRINT(R.string.fingerprint),
         LOCKSCREEN(R.string.lockscreen_gestures), ESSENTIAL_KEY(R.string.essential_key),
         SCREENSHOTS(R.string.screenshots), STATUS_BAR(R.string.status_bar),
-        NAVIGATION(R.string.gesture_navigation), RECENTS(R.string.recents)
+        NAVIGATION(R.string.gesture_navigation), RECENTS(R.string.recents),
+        CAMERA_RING(R.string.camera_ring), KEY_RECORDER(R.string.recorder_settings_title)
     }
 
     private lateinit var config: LocalConfig
     private lateinit var essentialKey: EssentialKeyViewModel
+    private lateinit var applyTweaks: ApplyTweaksViewModel
     private lateinit var tweaks: LocalTweaks
     private lateinit var githubUpdates: GitHubUpdates
     private var checkingUpdates = false
@@ -175,6 +181,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         config = LocalConfig(this)
         essentialKey = ViewModelProvider(this)[EssentialKeyViewModel::class.java]
+        applyTweaks = ViewModelProvider(this)[ApplyTweaksViewModel::class.java]
         tweaks = LocalTweaks(this)
         githubUpdates = GitHubUpdates(this)
         tweaks.publish()
@@ -186,7 +193,7 @@ class MainActivity : AppCompatActivity() {
             isAppearanceLightNavigationBars = !dark
         }
         back = object : OnBackPressedCallback(page != Page.HOME) {
-            override fun handleOnBackPressed() { page = Page.HOME; render() }
+            override fun handleOnBackPressed() = goBack()
         }
         onBackPressedDispatcher.addCallback(this, back)
         essentialKey.state.observe(this) { state ->
@@ -198,6 +205,23 @@ class MainActivity : AppCompatActivity() {
                 saveTweaks(tweaks.current.copy(essentialKey = emptyMap(), essentialTargets = emptyMap()))
             } else if (page == Page.ESSENTIAL_KEY) {
                 render()
+            }
+        }
+        applyTweaks.running.observe(this) { render() }
+        applyTweaks.result.observe(this) { result ->
+            if (result != null) {
+                val message = when (result) {
+                    ApplyTweaksViewModel.Result.DONE -> R.string.apply_done
+                    ApplyTweaksViewModel.Result.PARTIAL -> R.string.apply_partial
+                    ApplyTweaksViewModel.Result.ROOT_REQUIRED -> R.string.apply_root_required
+                    ApplyTweaksViewModel.Result.TIMED_OUT -> R.string.apply_timeout
+                    ApplyTweaksViewModel.Result.FAILED -> R.string.apply_failed
+                }
+                Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+                applyTweaks.consumeResult()
+                if (result == ApplyTweaksViewModel.Result.DONE || result == ApplyTweaksViewModel.Result.PARTIAL) {
+                    main.postDelayed(::queryStatus, 800)
+                }
             }
         }
         render()
@@ -234,7 +258,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun render() {
-        val previousScroll = if (renderedPage == page) scrollView?.scrollY ?: 0 else 0
+        val previousPage = renderedPage
+        val previousScroll = if (previousPage == page) scrollView?.scrollY ?: 0 else 0
         renderedPage = page
         statusTitle = null; statusNote = null; statusDot = null
         back.isEnabled = page != Page.HOME
@@ -253,6 +278,7 @@ class MainActivity : AppCompatActivity() {
         }
         scrollView = scroll
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
+        if (page != Page.HOME) addApplyBar()
         if (page == Page.POWER) {
             content.addView(setting(RebootTarget.RECOVERY, R.string.recovery, R.string.recovery_summary, R.string.show_recovery))
             content.addView(divider())
@@ -299,6 +325,10 @@ class MainActivity : AppCompatActivity() {
             addLockSettings(content)
         } else if (page == Page.ESSENTIAL_KEY) {
             addEssentialKey(content)
+        } else if (page == Page.KEY_RECORDER) {
+            addRecorderSettings(content, showHeading = false)
+        } else if (page == Page.CAMERA_RING) {
+            addCameraRingSettings(content)
         } else if (page == Page.STATUS_BAR) {
             content.addView(toggleRow(R.string.brightness_swipe, tweaks.current.brightnessSwipe) {
                 saveTweaks(tweaks.current.copy(brightnessSwipe = it))
@@ -308,7 +338,10 @@ class MainActivity : AppCompatActivity() {
                 saveTweaks(tweaks.current.copy(clockSeconds = it))
             })
             content.addView(divider())
-            addCameraRing(content)
+            content.addView(actionRow(R.string.camera_ring, getString(cameraRingModeTitle(tweaks.current.cameraRing))) {
+                page = Page.CAMERA_RING
+                render()
+            })
             content.addView(divider())
             content.addView(toggleRow(R.string.status_network_speed, tweaks.current.statusNetworkSpeed) {
                 saveTweaks(tweaks.current.copy(statusNetworkSpeed = it))
@@ -375,6 +408,61 @@ class MainActivity : AppCompatActivity() {
         }
         ViewCompat.requestApplyInsets(root)
         if (previousScroll != 0) scroll.post { scroll.scrollTo(0, previousScroll) }
+        if (previousPage != null && previousPage != page && ValueAnimator.areAnimatorsEnabled()) {
+            val direction = if (previousPage.parent() == page) -1 else 1
+            val layoutDirection = if (resources.configuration.layoutDirection == View.LAYOUT_DIRECTION_RTL) -1 else 1
+            scroll.alpha = 0f
+            scroll.translationX = (dp(16) * direction * layoutDirection).toFloat()
+            scroll.animate().alpha(1f).translationX(0f).setDuration(180)
+                .setInterpolator(DecelerateInterpolator()).start()
+        }
+    }
+
+    private fun addApplyBar() {
+        val targets = when (page) {
+            Page.RECENTS -> setOf(RestartTarget.LAUNCHER)
+            Page.NAVIGATION -> setOf(RestartTarget.LAUNCHER, RestartTarget.SYSTEM_UI)
+            Page.SCREENSHOTS, Page.KEY_RECORDER, Page.HOME -> emptySet()
+            else -> setOf(RestartTarget.SYSTEM_UI)
+        }
+        val detail = when {
+            targets.size == 2 -> R.string.apply_restart_both
+            RestartTarget.LAUNCHER in targets -> R.string.apply_restart_launcher
+            RestartTarget.SYSTEM_UI in targets -> R.string.apply_restart_system_ui
+            page == Page.SCREENSHOTS -> R.string.apply_refresh_framework
+            else -> R.string.apply_refresh_recorder
+        }
+        val running = applyTweaks.running.value == true
+        val selectedPage = page
+        root.addView(divider())
+        root.addView(column().apply {
+            setPadding(dp(20), dp(8), dp(20), dp(8))
+            addView(essentialKeyButton(
+                if (running) R.string.apply_in_progress else R.string.apply,
+                filled = true,
+                enabled = !running,
+            ) { applyCurrentSettings(selectedPage, targets) }, LinearLayout.LayoutParams(-1, -2))
+            addView(text(getString(detail), 12f, secondary = true).apply {
+                gravity = Gravity.CENTER
+                setPadding(0, dp(6), 0, 0)
+            })
+        })
+    }
+
+    private fun applyCurrentSettings(from: Page, targets: Set<RestartTarget>) {
+        if (applyTweaks.running.value == true) return
+        if (from == Page.POWER) config.publish()
+        val published = tweaks.publish()
+        if (!published || (from == Page.POWER && !config.published)) {
+            Toast.makeText(this, R.string.sync_note, Toast.LENGTH_LONG).show()
+            return
+        }
+        if (targets.isEmpty()) {
+            queryStatus()
+            Toast.makeText(this, R.string.apply_refresh_done, Toast.LENGTH_SHORT).show()
+        } else {
+            applyTweaks.restart(targets)
+        }
     }
 
     private fun addUpdateSettings(content: LinearLayout) {
@@ -442,12 +530,23 @@ class MainActivity : AppCompatActivity() {
             setImageResource(R.drawable.ic_back)
             contentDescription = getString(R.string.back)
             background = selectable()
-            setOnClickListener { page = Page.HOME; render() }
+            setOnClickListener { goBack() }
         }, LinearLayout.LayoutParams(dp(48), dp(48)))
         addView(text(getString(page.title), 24f).apply {
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
             ViewCompat.setAccessibilityHeading(this, true)
         }, LinearLayout.LayoutParams(0, -2, 1f))
+    }
+
+    private fun Page.parent(): Page = when (this) {
+        Page.CAMERA_RING -> Page.STATUS_BAR
+        Page.KEY_RECORDER -> Page.ESSENTIAL_KEY
+        else -> Page.HOME
+    }
+
+    private fun goBack() {
+        page = page.parent()
+        render()
     }
 
     private fun statusView(): View = LinearLayout(this).apply {
@@ -473,6 +572,7 @@ class MainActivity : AppCompatActivity() {
             background = selectable()
             addView(ImageView(this@MainActivity).apply {
                 setImageResource(icon)
+                setColorFilter(getColor(R.color.foreground))
                 importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             }, LinearLayout.LayoutParams(dp(24), dp(24)).apply { marginEnd = dp(20) })
             addView(column().apply {
@@ -532,7 +632,9 @@ class MainActivity : AppCompatActivity() {
         })
         if (settings.dots == DotsMode.CUSTOM) {
             content.addView(divider())
-            content.addView(actionRow(R.string.custom_color, colorHex(settings.dotsColor), action = ::editColor))
+            content.addView(actionRow(R.string.custom_color, colorHex(settings.dotsColor), action = { editColor(R.string.custom_color, settings.dotsColor) { color ->
+                saveTweaks(tweaks.current.copy(dotsColor = color))
+            } }))
         }
         content.addView(divider())
         if (settings.icon.isNotEmpty()) {
@@ -581,12 +683,10 @@ class MainActivity : AppCompatActivity() {
                 ViewCompat.setAccessibilityHeading(this, true)
             })
         }
-        toggle(R.string.lock_eta, s.eta) { tweaks.current.copy(eta = it) }
-        content.addView(divider())
         heading(R.string.lock_widgets)
         toggle(R.string.lock_net, s.networkWidget) { tweaks.current.copy(networkWidget = it) }
         toggle(R.string.lock_bat, s.batteryWidget) { tweaks.current.copy(batteryWidget = it) }
-        toggle(R.string.discharge_eta, s.dischargeEta) { tweaks.current.copy(dischargeEta = it) }
+        toggle(R.string.lock_eta, s.eta) { tweaks.current.copy(eta = it) }
         toggle(R.string.lock_sys, s.systemWidget) { tweaks.current.copy(systemWidget = it) }
         heading(R.string.lock_layout)
         content.addView(text(getString(R.string.drag_hint), 14f, secondary = true))
@@ -633,14 +733,14 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
-    private fun editColor() {
+    private fun editColor(title: Int, color: Int, save: (Int) -> Unit) {
         val input = EditText(this).apply {
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
             setSingleLine()
-            setText(colorHex(tweaks.current.dotsColor))
+            setText(colorHex(color))
             selectAll()
         }
-        val dialog = AlertDialog.Builder(this).setTitle(R.string.custom_color)
+        val dialog = AlertDialog.Builder(this).setTitle(title)
             .setView(column().apply { setPadding(dp(24), dp(8), dp(24), 0); addView(input) })
             .setNegativeButton(android.R.string.cancel, null)
             .setPositiveButton(R.string.apply, null).create()
@@ -650,7 +750,7 @@ class MainActivity : AppCompatActivity() {
                 if (!value.matches(Regex("[0-9a-fA-F]{6}"))) {
                     input.error = getString(R.string.invalid_color)
                 } else {
-                    saveTweaks(tweaks.current.copy(dotsColor = "#$value".toColorInt()))
+                    save("#$value".toColorInt())
                     dialog.dismiss()
                 }
             }
@@ -794,21 +894,113 @@ class MainActivity : AppCompatActivity() {
             EssentialKeyCapture.CAMERA to R.string.key_action_camera,
         )
 
-    private fun addCameraRing(content: LinearLayout) {
+    private fun cameraRingModeTitle(mode: CameraRingMode): Int = when (mode) {
+        CameraRingMode.OFF -> R.string.camera_ring_off
+        CameraRingMode.BATTERY -> R.string.camera_ring_battery
+        CameraRingMode.MEDIA -> R.string.camera_ring_media
+        CameraRingMode.AUTO -> R.string.camera_ring_auto
+    }
+
+    private fun addCameraRingSettings(content: LinearLayout) {
+        val style = tweaks.current.cameraRingStyle
+        val mode = tweaks.current.cameraRing
         val modes = CameraRingMode.entries
-        val labels = intArrayOf(R.string.camera_ring_off, R.string.camera_ring_battery,
-            R.string.camera_ring_media, R.string.camera_ring_auto).map(::getString).toTypedArray()
-        val selected = modes.indexOf(tweaks.current.cameraRing)
-        content.addView(actionRow(R.string.camera_ring, labels[selected]) {
+        content.addView(actionRow(R.string.camera_ring_mode, getString(cameraRingModeTitle(mode))) {
             AlertDialog.Builder(this)
-                .setTitle(R.string.camera_ring)
-                .setSingleChoiceItems(labels, selected) { dialog, index ->
+                .setTitle(R.string.camera_ring_mode)
+                .setSingleChoiceItems(modes.map { getString(cameraRingModeTitle(it)) }.toTypedArray(), mode.ordinal) { dialog, index ->
                     dialog.dismiss()
                     saveTweaks(tweaks.current.copy(cameraRing = modes[index]))
                 }
                 .setNegativeButton(R.string.cancel, null)
                 .show()
         })
+        content.addView(divider())
+        val shapes = CameraRingShape.entries
+        val shapeLabels = intArrayOf(R.string.camera_ring_cutout, R.string.camera_ring_circle,
+            R.string.camera_ring_oval, R.string.camera_ring_capsule).map(::getString).toTypedArray()
+        content.addView(actionRow(R.string.camera_ring_shape, shapeLabels[style.shape.ordinal]) {
+            AlertDialog.Builder(this)
+                .setTitle(R.string.camera_ring_shape)
+                .setSingleChoiceItems(shapeLabels, style.shape.ordinal) { dialog, index ->
+                    dialog.dismiss()
+                    saveCameraRingStyle { copy(shape = shapes[index]) }
+                }
+                .setNegativeButton(R.string.cancel, null)
+                .show()
+        })
+        content.addView(divider())
+        content.addView(actionRow(R.string.camera_ring_color, colorHex(style.color)) {
+            editColor(R.string.camera_ring_color, style.color) { color ->
+                saveCameraRingStyle { copy(color = color) }
+            }
+        })
+        content.addView(divider())
+        val widthTitle = if (style.shape == CameraRingShape.CIRCLE) R.string.camera_ring_diameter
+            else R.string.camera_ring_width
+        addRingDimension(content, widthTitle, style.widthDp, CameraRingStyle.SIZE_DP,
+            automatic = true) { width -> saveCameraRingStyle { copy(widthDp = width) } }
+        if (style.shape != CameraRingShape.CIRCLE) {
+            addRingDimension(content, R.string.camera_ring_height, style.heightDp, CameraRingStyle.SIZE_DP,
+                automatic = true) { height -> saveCameraRingStyle { copy(heightDp = height) } }
+        }
+        addRingDimension(content, R.string.camera_ring_stroke, style.strokeDp, CameraRingStyle.STROKE_DP,
+            automatic = false) { stroke -> saveCameraRingStyle { copy(strokeDp = stroke) } }
+        content.addView(settingsHeading(R.string.camera_ring_position))
+        addRingDimension(content, R.string.camera_ring_left, style.leftDp, CameraRingStyle.EDGE_DP,
+            automatic = true) { left -> saveCameraRingStyle { copy(leftDp = left) } }
+        addRingDimension(content, R.string.camera_ring_top, style.topDp, CameraRingStyle.EDGE_DP,
+            automatic = true) { top -> saveCameraRingStyle { copy(topDp = top) } }
+    }
+
+    private fun saveCameraRingStyle(update: CameraRingStyle.() -> CameraRingStyle) {
+        val current = tweaks.current
+        saveTweaks(current.copy(cameraRingStyle = current.cameraRingStyle.update()))
+    }
+
+    private fun addRingDimension(content: LinearLayout, title: Int, value: Int, valid: IntRange,
+        automatic: Boolean, save: (Int) -> Unit) {
+        val summary = if (value == CameraRingStyle.AUTO) getString(R.string.camera_ring_position_auto)
+            else getString(R.string.camera_ring_dp, value)
+        content.addView(actionRow(title, summary) {
+            val range = getString(R.string.camera_ring_range, valid.first, valid.last)
+            val input = EditText(this).apply {
+                inputType = InputType.TYPE_CLASS_NUMBER
+                setSingleLine()
+                hint = range
+                if (value != CameraRingStyle.AUTO) {
+                    setText(String.format(resources.configuration.locales[0], "%d", value))
+                    selectAll()
+                }
+            }
+            val builder = AlertDialog.Builder(this).setTitle(title)
+                .setView(column().apply { setPadding(dp(24), dp(8), dp(24), 0); addView(input) })
+                .setNegativeButton(R.string.cancel, null)
+                .setPositiveButton(R.string.apply, null)
+            if (automatic) builder.setNeutralButton(R.string.camera_ring_position_auto) { _, _ ->
+                save(CameraRingStyle.AUTO)
+            }
+            val dialog = builder.create()
+            dialog.setOnShowListener {
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                    val number = input.text.toString().trim().toIntOrNull()
+                    if (number != null && number in valid) {
+                        dialog.dismiss()
+                        save(number)
+                    } else {
+                        input.error = range
+                    }
+                }
+            }
+            dialog.show()
+        })
+        content.addView(divider())
+    }
+
+    private fun settingsHeading(title: Int): TextView = text(getString(title), 14f, secondary = true).apply {
+        setPadding(0, dp(22), 0, dp(5))
+        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        ViewCompat.setAccessibilityHeading(this, true)
     }
 
     private fun addStatusAction(content: LinearLayout) {
@@ -844,6 +1036,7 @@ class MainActivity : AppCompatActivity() {
             EssentialKeyGesture.DOUBLE_PRESS_AND_HOLD to R.string.key_double_press_hold,
         )
         val actions = captureTitles
+        content.addView(settingsHeading(R.string.key_gesture_settings))
         gestureTitles.forEach { (gesture, title) ->
             val selected = tweaks.current.essentialKey[gesture] ?: EssentialKeyCapture.NONE
             val target = tweaks.current.essentialTargets[gesture]
@@ -882,11 +1075,6 @@ class MainActivity : AppCompatActivity() {
             })
             content.addView(divider())
         }
-        // Show recording options only when at least one Essential Key gesture starts the recorder.
-        if (tweaks.current.essentialKey.values.any { it == EssentialKeyCapture.SOUND_RECORDER }) {
-            addRecorderSettings(content)
-        }
-
         content.addView(text(getString(R.string.key_mapping_note), 14f, secondary = true).apply {
             setPadding(0, dp(16), 0, dp(10))
         })
@@ -894,7 +1082,15 @@ class MainActivity : AppCompatActivity() {
             setPadding(0, 0, 0, dp(20))
         })
 
+        content.addView(settingsHeading(R.string.key_action_settings))
+        content.addView(actionRow(R.string.recorder_settings_title, getString(R.string.key_recorder_summary)) {
+            page = Page.KEY_RECORDER
+            render()
+        })
+        content.addView(divider())
+
         val state = essentialKey.state.value ?: EssentialKeyViewModel.State()
+        content.addView(settingsHeading(R.string.key_button_settings))
         content.addView(text(getString(R.string.free_key_description), 15f, secondary = true).apply {
             setPadding(0, dp(8), 0, dp(16))
         })
@@ -954,13 +1150,9 @@ class MainActivity : AppCompatActivity() {
         }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) })
     }
 
-    private fun addRecorderSettings(content: LinearLayout) {
+    private fun addRecorderSettings(content: LinearLayout, showHeading: Boolean = true) {
         val settings = tweaks.current
-        content.addView(text(getString(R.string.recorder_settings_title), 17f).apply {
-            setPadding(0, dp(24), 0, dp(8))
-            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-            ViewCompat.setAccessibilityHeading(this, true)
-        })
+        if (showHeading) content.addView(settingsHeading(R.string.recorder_settings_title))
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             content.addView(actionRow(R.string.recorder_grant_permission,
                 getString(R.string.recorder_permission_needed)) {

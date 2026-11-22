@@ -28,10 +28,15 @@ internal data class BatteryMetrics(
             if (settings.temperature && deciCelsius != null) {
                 add(String.format(locale, "%.1f\u00a0°C", deciCelsius / 10.0))
             }
-            if (settings.eta && charging && remainingMillis != null && remainingMillis > 0) {
-                val minutes = (remainingMillis - 1) / 60_000 + 1
-                add(String.format(locale, "≈ %d:%02d → 100%%", minutes / 60, minutes % 60))
-            }
+            if (settings.eta && charging) timeToFull(remainingMillis, locale)?.let(::add)
         }.joinToString("  ·  ")
     }
 }
+
+internal fun timeToFull(millis: Long?, locale: Locale): String? {
+    if (millis == null || millis <= 0) return null
+    return formatBatteryTime((millis - 1) / 60_000 + 1, 100, locale)
+}
+
+internal fun formatBatteryTime(minutes: Long, target: Int, locale: Locale): String =
+    String.format(locale, "≈ %d:%02d → %d%%", minutes / 60, minutes % 60, target)

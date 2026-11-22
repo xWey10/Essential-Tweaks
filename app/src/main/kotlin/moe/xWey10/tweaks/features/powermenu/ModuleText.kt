@@ -5,6 +5,8 @@ package moe.xWey10.tweaks.features.powermenu
 
 import android.content.Context
 import android.content.res.Resources
+import android.graphics.drawable.Drawable
+import androidx.core.content.res.ResourcesCompat
 import moe.xWey10.tweaks.R
 import moe.xWey10.tweaks.hooks.HookLog
 
@@ -13,16 +15,22 @@ internal class ModuleText(private val context: Context, private val modulePath: 
     private var resources: Resources? = null
 
     @Suppress("DEPRECATION")
+    private fun moduleResources(): Resources = resources ?: run {
+        val info = context.packageManager.getPackageArchiveInfo(modulePath, 0)?.applicationInfo
+            ?: error("Module APK unavailable")
+        info.sourceDir = modulePath
+        info.publicSourceDir = modulePath
+        context.packageManager.getResourcesForApplication(info).also { resources = it }
+    }
+
+    fun drawable(id: Int): Drawable? = runCatching {
+        ResourcesCompat.getDrawable(moduleResources(), id, null)?.mutate()
+    }
+        .onFailure { HookLog.error("Could not load module drawable", it) }.getOrNull()
+
     fun get(id: Int, vararg args: Any): String {
         try {
-            val res = resources ?: run {
-                val info = context.packageManager.getPackageArchiveInfo(modulePath, 0)?.applicationInfo
-                    ?: error("Module APK unavailable")
-                info.sourceDir = modulePath
-                info.publicSourceDir = modulePath
-                context.packageManager.getResourcesForApplication(info).also { resources = it }
-            }
-            return res.getString(id, *args)
+            return moduleResources().getString(id, *args)
         } catch (error: Throwable) {
             HookLog.error("Could not load localized module text", error)
             val fallback = when (id) {
@@ -46,8 +54,6 @@ internal class ModuleText(private val context: Context, private val modulePath: 
                 R.string.reboot_timeout -> "No reboot response received. Check the device before trying again."
                 R.string.recents_available_ram_value -> "Available RAM: %s / %s GiB"
                 R.string.recents_app_ram_value -> "RAM usage: %s"
-                R.string.recents_action_info -> "Info"
-                R.string.recents_action_app_info -> "App info"
                 R.string.recents_action_copy -> "Copy ID"
                 R.string.recents_action_copy_package -> "Copy package name"
                 R.string.recents_action_unavailable -> "Action unavailable"

@@ -29,13 +29,13 @@ internal class LayoutPreview(context: Context, settings: TweakSettings, save: (S
         val samples = mapOf(
             'c' to BatteryMetrics(4210, 1840000, 296, true, 2100000).format(settings, locale)
                 .ifEmpty { context.getString(R.string.charging_info) },
-            'b' to listOfNotNull("68%".takeIf { settings.batteryWidget || !settings.dischargeEta },
-                "≈ 6:42 → 0%".takeIf { settings.dischargeEta }).joinToString(" · "),
+            'b' to listOfNotNull("68%".takeIf { settings.batteryWidget || !settings.eta },
+                "≈ 6:42 → 0%".takeIf { settings.eta }).joinToString(" · "),
             'n' to "↓ 24 KB/s    ↑ 6 KB/s",
             's' to "RAM 4 GB / 8 GB   ·   CPU ${android.os.Build.SOC_MODEL}"
         )
         val enabled = mapOf('c' to (settings.chargingEnabled && settings.hasMetrics),
-            'b' to (settings.batteryWidget || settings.dischargeEta), 'n' to settings.networkWidget, 's' to settings.systemWidget)
+            'b' to (settings.batteryWidget || settings.eta), 'n' to settings.networkWidget, 's' to settings.systemWidget)
         val original = settings.widgetOrder
         val items = original.associateWith { key ->
             TextView(context).apply {

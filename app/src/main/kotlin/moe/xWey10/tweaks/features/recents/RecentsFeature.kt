@@ -8,23 +8,26 @@ import android.content.ClipboardManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.ContextWrapper
-import android.content.pm.LauncherApps
 import android.graphics.Color
 import android.graphics.Rect
-import android.graphics.drawable.GradientDrawable
 import android.os.Handler
 import android.os.Looper
 import android.os.UserHandle
+import android.util.TypedValue
 import android.view.Gravity
+import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.view.WindowInsets
+import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.view.isEmpty
 import androidx.core.view.isVisible
+import androidx.core.widget.TextViewCompat
 import de.robv.android.xposed.XposedHelpers
 import moe.xWey10.tweaks.R
 import moe.xWey10.tweaks.features.powermenu.ModuleText
@@ -40,12 +43,12 @@ internal class RecentsFeature(
     private val tweaks: TweakReader,
     private val modulePath: String,
 ) {
-    private data class App(val packageName: String, val component: ComponentName?, val user: UserHandle)
+    private data class App(val packageName: String, val user: UserHandle)
 
     private val main = Handler(Looper.getMainLooper())
     private val worker = Executors.newSingleThreadExecutor()
     private val bindings = mutableMapOf<FrameLayout, OverviewBinding>()
-    private val menuBadgeTag = Any()
+    private val menuRamTag = Any()
     private var pssErrorLogged = false
 
     fun install() {
@@ -70,7 +73,7 @@ internal class RecentsFeature(
                 bindings[param.thisObject]?.restoreActionMargin()
             }
             add(update) { param ->
-                bindings[param.thisObject]?.reserveBadgeSpace()
+                bindings[param.thisObject]?.reserveMemorySpace()
             }
         }
         tweaks.observe { bindings.values.forEach(OverviewBinding::applySettings) }
@@ -89,35 +92,81 @@ internal class RecentsFeature(
                 val options = field(menu, "mOptionLayout", "optionLayout") as? LinearLayout
                     ?: namedView(menu, "menu_option_layout") as? LinearLayout
                     ?: return@add
-                options.findViewWithTag<View>(menuBadgeTag)?.let(options::removeView)
-                if (!tweaks.settings.recentsAppRam || options.orientation != LinearLayout.VERTICAL) return@add
+                options.findViewWithTag<View>(menuRamTag)?.let(options::removeView)
+                if (!tweaks.settings.recentsAppRam || options.orientation != LinearLayout.VERTICAL || options.isEmpty()) return@add
                 val target = (param.args.asSequence() + sequenceOf(
                     field(menu, "mTaskContainer", "taskContainer", "mTaskView", "taskView")
                 )).filterNotNull().firstNotNullOfOrNull(::appForTask) ?: return@add
-                val text = ModuleText(menu.context, modulePath)
-                val label = badge(menu.context).apply {
-                    tag = menuBadgeTag
-                    setTextSize(13f)
-                    setText(text.get(R.string.recents_app_ram_value, "…"))
-                }
-                options.addView(label, LinearLayout.LayoutParams(-2, -2).apply {
-                    gravity = Gravity.CENTER_HORIZONTAL
-                    topMargin = label.dp(6)
-                    bottomMargin = label.dp(6)
-                })
+                val strings = ModuleText(menu.context, modulePath)
+                val (row, label) = memoryMenuRow(options, strings) ?: return@add
+                label.text = strings.get(R.string.recents_app_ram_value, "…")
+                // Nothing rounds the outer rows; keep the original first and last items on the ends.
+                options.addView(row, (options.childCount - 1).coerceAtLeast(0))
                 val context = menu.context.applicationContext
                 worker.execute {
                     val value = appPss(context, target)?.let {
                         String.format(context.resources.configuration.locales[0], "%,d MiB", it)
                     } ?: "—"
                     main.post {
-                        if (label.parent === options) {
-                            label.text = text.get(R.string.recents_app_ram_value, value)
-                        }
+                        if (row.parent === options) label.text = strings.get(R.string.recents_app_ram_value, value)
                     }
                 }
             }
         }
+    }
+
+    private fun memoryMenuRow(options: LinearLayout, strings: ModuleText): Pair<View, TextView>? {
+        val sample = ((options.childCount - 2).coerceAtLeast(0) downTo 0).firstNotNullOfOrNull { index ->
+            val child = options.getChildAt(index)
+            (namedView(child, "text") as? TextView)?.let { child to it }
+        }
+        val stockRow = sample?.first
+        val stockLabel = sample?.second
+        val optionLayout = launcherResource(options, "task_view_menu_option", "layout")
+        val row = if (optionLayout != 0) {
+            LayoutInflater.from(options.context).inflate(optionLayout, options, false)
+        } else {
+            val template = stockRow as? LinearLayout ?: return null
+            val templateText = stockLabel ?: return null
+            LinearLayout(template.context).apply {
+                orientation = template.orientation
+                gravity = template.gravity
+                val icon = namedView(template, "icon") ?: return null
+                val iconView = View(context).apply { id = icon.id }
+                addView(iconView, LinearLayout.LayoutParams(icon.layoutParams))
+                addView(TextView(context).apply { id = templateText.id },
+                    LinearLayout.LayoutParams(templateText.layoutParams))
+            }
+        }
+        val label = namedView(row, "text") as? TextView ?: return null
+        row.tag = menuRamTag
+        row.isClickable = false
+        row.isFocusable = false
+        val sourceIcon = stockRow?.let { namedView(it, "icon") }
+        val icon = namedView(row, "icon")
+        if (stockRow != null && stockLabel != null) {
+            row.minimumHeight = stockRow.minimumHeight
+            row.setPaddingRelative(stockRow.paddingStart, stockRow.paddingTop, stockRow.paddingEnd, stockRow.paddingBottom)
+            // A middle item has the same surface as the native options, including its corner treatment.
+            stockRow.background?.constantState?.newDrawable(row.resources)?.mutate()?.let { row.background = it }
+            row.backgroundTintList = stockRow.backgroundTintList
+            val params = stockRow.layoutParams as? LinearLayout.LayoutParams
+            row.layoutParams = params?.let { LinearLayout.LayoutParams(it) }
+                ?: LinearLayout.LayoutParams(-1, -2)
+            label.copyTypefaceFrom(stockLabel)
+        } else {
+            row.layoutParams = LinearLayout.LayoutParams(-1, -2)
+        }
+        val glyph = strings.drawable(R.drawable.ic_recents_memory)
+        if (icon is android.widget.ImageView) {
+            icon.setImageDrawable(glyph)
+            icon.imageTintList = label.textColors
+        } else if (icon != null) {
+            icon.background = glyph
+            icon.backgroundTintList = sourceIcon?.backgroundTintList ?: label.textColors
+        }
+        icon?.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        return row to label
     }
 
     private fun appPss(context: Context, app: App): Long? {
@@ -141,17 +190,15 @@ internal class RecentsFeature(
     ) : View.OnAttachStateChangeListener, ViewTreeObserver.OnPreDrawListener, Runnable {
         private val strings = ModuleText(host.context, modulePath)
         private val row = screenshot.parent as? LinearLayout
-        private val memory = badge(host.context).apply { visibility = View.INVISIBLE }
+        private val memory = TextView(screenshot.context).apply {
+            copyTypefaceFrom(screenshot)
+            setTextSize(13f)
+            gravity = Gravity.CENTER
+            setShadowLayer(dp(2).toFloat(), 0f, 1f, Color.BLACK)
+            visibility = View.INVISIBLE
+        }
         private val screenshotBounds = Rect()
-        private val info = button(R.string.recents_action_info, R.string.recents_action_app_info) { view, app ->
-            val component = app.component ?: return@button
-            view.context.getSystemService(LauncherApps::class.java)
-                ?.startAppDetailsActivity(component, app.user, null, null)
-        }
-        private val copy = button(R.string.recents_action_copy, R.string.recents_action_copy_package) { view, app ->
-            view.context.getSystemService(ClipboardManager::class.java)
-                ?.setPrimaryClip(ClipData.newPlainText(strings.get(R.string.recents_action_copy_package), app.packageName))
-        }
+        private val copy = createCopyButton()
         private var scheduled = false
         private var visible = false
         private var samplingGeneration = 0
@@ -177,7 +224,7 @@ internal class RecentsFeature(
                     host.addView(memory, FrameLayout.LayoutParams(-2, -2,
                         Gravity.TOP or Gravity.CENTER_HORIZONTAL))
                 }
-                reserveBadgeSpace()
+                reserveMemorySpace()
                 host.invalidate()
             } else {
                 restoreActionMargin()
@@ -186,18 +233,20 @@ internal class RecentsFeature(
             }
             if (row?.orientation == LinearLayout.HORIZONTAL) {
                 if (tweaks.settings.recentsActions) {
-                    if (info.parent == null) {
-                        row.addView(info, row.indexOfChild(screenshot) + 1, LinearLayout.LayoutParams(-2, -2))
-                        row.addView(copy, row.indexOfChild(info) + 1, LinearLayout.LayoutParams(-2, -2))
+                    if (copy.parent == null) {
+                        val params = LinearLayout.LayoutParams(screenshot.layoutParams as LinearLayout.LayoutParams)
+                        params.width = ViewGroup.LayoutParams.WRAP_CONTENT
+                        params.weight = 0f
+                        params.marginStart += copy.dp(6)
+                        row.addView(copy, row.indexOfChild(screenshot) + 1, params)
                     }
                 } else {
-                    row.removeView(info)
                     row.removeView(copy)
                 }
             }
         }
 
-        fun reserveBadgeSpace() {
+        fun reserveMemorySpace() {
             if (memory.parent == null || actionMargin != null || row?.parent !== host) return
             val params = row.layoutParams as? FrameLayout.LayoutParams ?: return
             if (params.gravity == -1 || params.gravity and Gravity.VERTICAL_GRAVITY_MASK != Gravity.BOTTOM) return
@@ -218,15 +267,12 @@ internal class RecentsFeature(
 
         override fun onPreDraw(): Boolean {
             val shown = host.isShown && host.alpha > .01f && screenshot.isShown && screenshot.alpha > .01f
-            if (info.parent != null) {
-                val visibility = if (screenshot.isVisible) View.VISIBLE else View.GONE
-                if (info.visibility != visibility) {
-                    info.visibility = visibility
-                    copy.visibility = visibility
-                }
-                info.isEnabled = screenshot.isEnabled
+            if (copy.parent != null) {
+                copy.isVisible = screenshot.isVisible
                 copy.isEnabled = screenshot.isEnabled
+                copy.alpha = screenshot.alpha
             }
+            if (memory.currentTextColor != screenshot.currentTextColor) memory.setTextColor(screenshot.currentTextColor)
             if (memory.parent != null && shown) {
                 screenshotBounds.set(0, 0, screenshot.width, screenshot.height)
                 host.offsetDescendantRectToMyCoords(screenshot, screenshotBounds)
@@ -292,28 +338,42 @@ internal class RecentsFeature(
             }
         }
 
-        private fun button(label: Int, description: Int, click: (View, App) -> Unit): TextView =
-            TextView(host.context).apply {
-                setText(strings.get(label))
-                contentDescription = strings.get(description)
-                gravity = Gravity.CENTER
-                setTextSize(12f)
-                setTextColor(screenshot.textColors)
-                setPaddingRelative(dp(7), 0, dp(7), 0)
-                minimumHeight = dp(48)
-                isFocusable = true
-                val ripple = android.util.TypedValue()
+        private fun createCopyButton(): Button = Button(screenshot.context).apply {
+            text = strings.get(R.string.recents_action_copy)
+            contentDescription = strings.get(R.string.recents_action_copy_package)
+            copyTypefaceFrom(screenshot)
+            gravity = screenshot.gravity
+            minimumHeight = screenshot.minimumHeight
+            minimumWidth = screenshot.minimumWidth
+            background = screenshot.background?.constantState?.newDrawable(resources)?.mutate()
+            backgroundTintList = screenshot.backgroundTintList
+            if (background == null) {
+                val ripple = TypedValue()
                 if (context.theme.resolveAttribute(android.R.attr.selectableItemBackground, ripple, true)) {
                     setBackgroundResource(ripple.resourceId)
                 }
-                setOnClickListener { view ->
-                    val target = currentApp(host) ?: return@setOnClickListener
-                    runCatching { click(view, target) }.onFailure {
-                        HookLog.error("Recents action unavailable", it)
-                        Toast.makeText(context, strings.get(R.string.recents_action_unavailable), Toast.LENGTH_SHORT).show()
-                    }
+            }
+            setPaddingRelative(screenshot.paddingStart, screenshot.paddingTop, screenshot.paddingEnd, screenshot.paddingBottom)
+            val screenshotIcon = screenshot.compoundDrawablesRelative[0]
+            val icon = strings.drawable(R.drawable.ic_recents_copy)
+            val size = screenshotIcon?.bounds?.width()?.takeIf { it > 0 } ?: dp(18)
+            icon?.setBounds(0, 0, size, size)
+            compoundDrawablePadding = screenshot.compoundDrawablePadding
+            setCompoundDrawablesRelative(icon, null, null, null)
+            TextViewCompat.setCompoundDrawableTintList(this,
+                screenshot.compoundDrawableTintList ?: screenshot.textColors)
+            isFocusable = true
+            setOnClickListener {
+                val target = currentApp(host) ?: return@setOnClickListener
+                runCatching {
+                    val clipboard = checkNotNull(context.getSystemService(ClipboardManager::class.java))
+                    clipboard.setPrimaryClip(ClipData.newPlainText(contentDescription, target.packageName))
+                }.onFailure {
+                    HookLog.error("Recents copy action unavailable", it)
+                    Toast.makeText(context, strings.get(R.string.recents_action_unavailable), Toast.LENGTH_SHORT).show()
                 }
             }
+        }
     }
 
     private fun currentApp(host: View): App? {
@@ -339,13 +399,20 @@ internal class RecentsFeature(
         val userId = field(key, "userId") as? Int ?: return null
         if (userId < 0) return null
         val user = XposedHelpers.callStaticMethod(UserHandle::class.java, "of", userId) as UserHandle
-        return App(packageName, component, user)
+        return App(packageName, user)
+    }
+
+    private fun namedView(host: View, name: String): View? {
+        val id = launcherResource(host, name, "id")
+        return if (id != 0) host.findViewById(id) else null
     }
 
     @SuppressLint("DiscouragedApi") // Resolve the launcher package’s resource IDs at runtime.
-    private fun namedView(host: View, name: String): View? {
-        val id = host.resources.getIdentifier(name, "id", host.context.packageName)
-        return if (id != 0) host.findViewById(id) else null
+    private fun launcherResource(host: View, name: String, type: String): Int {
+        val resources = host.resources
+        val owner = runCatching { resources.getResourcePackageName(host.id) }.getOrNull()
+        return sequenceOf(host.context.packageName, owner, "com.android.launcher3").filterNotNull().distinct()
+            .map { resources.getIdentifier(name, type, it) }.firstOrNull { it != 0 } ?: 0
     }
 
     private fun field(owner: Any, vararg names: String): Any? =
@@ -356,15 +423,13 @@ internal class RecentsFeature(
     private fun call(owner: Any, name: String): Any? =
         runCatching { XposedHelpers.callMethod(owner, name) }.getOrNull()
 
-    private fun badge(context: Context) = TextView(context).apply {
-        setTextColor(Color.WHITE)
-        setTextSize(13f)
-        gravity = Gravity.CENTER
-        setPaddingRelative(dp(9), dp(3), dp(9), dp(3))
-        background = GradientDrawable().apply {
-            setColor(0xCC000000.toInt())
-            cornerRadius = dp(8).toFloat()
-        }
+    private fun TextView.copyTypefaceFrom(native: TextView) {
+        setTextSize(TypedValue.COMPLEX_UNIT_PX, native.textSize)
+        setTextColor(native.textColors)
+        typeface = native.typeface
+        letterSpacing = native.letterSpacing
+        includeFontPadding = native.includeFontPadding
+        isAllCaps = native.isAllCaps
     }
 
     private fun View.dp(value: Int): Int = (value * resources.displayMetrics.density).roundToInt()
