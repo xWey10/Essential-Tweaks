@@ -13,7 +13,8 @@ import android.content.pm.PackageManager
 import android.os.PowerManager
 import android.os.Process
 import android.provider.MediaStore
-import moe.xWey10.tweaks.recorder.RecorderActivity
+import android.Manifest
+import moe.xWey10.tweaks.recorder.RecorderService
 import android.widget.Toast
 import de.robv.android.xposed.XposedHelpers
 import moe.xWey10.tweaks.core.Protocol
@@ -84,8 +85,17 @@ internal class EssentialKeySystemUi(private val loader: ClassLoader) {
                                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                         }
                         EssentialKeyCapture.SOUND_RECORDER -> {
-                            context.startActivity(Intent().setClassName("moe.xWey10.tweaks", RecorderActivity::class.java.name)
-                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP))
+                            val appId = "moe.xWey10.tweaks"
+                            if (context.packageManager.checkPermission(Manifest.permission.RECORD_AUDIO, appId) !=
+                                PackageManager.PERMISSION_GRANTED) {
+                                Toast.makeText(context,
+                                    "Essential Tweaks: allow microphone access in Essential Key settings",
+                                    Toast.LENGTH_LONG).show()
+                                return
+                            }
+                            // SystemUI starts the protected foreground service directly; no Activity/task switch.
+                            context.startForegroundService(Intent(RecorderService.ACTION_TOGGLE)
+                                .setClassName(appId, RecorderService::class.java.name))
                         }
                         EssentialKeyCapture.NOTIFICATIONS -> {
                             val statusBar = context.getSystemService(StatusBarManager::class.java)

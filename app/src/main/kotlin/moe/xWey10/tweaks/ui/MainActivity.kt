@@ -3,6 +3,7 @@
 
 package moe.xWey10.tweaks.ui
 
+import android.Manifest
 import android.app.BroadcastOptions
 import android.content.BroadcastReceiver
 import android.content.ClipData
@@ -18,6 +19,7 @@ import android.graphics.Bitmap
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
+import android.provider.DocumentsContract
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -53,6 +55,10 @@ import moe.xWey10.tweaks.core.EssentialTarget
 import moe.xWey10.tweaks.core.FingerprintImage
 import moe.xWey10.tweaks.core.LocalConfig
 import moe.xWey10.tweaks.core.LocalTweaks
+import moe.xWey10.tweaks.core.RecorderDestination
+import moe.xWey10.tweaks.core.RecorderFormat
+import moe.xWey10.tweaks.core.RecorderNaming
+import moe.xWey10.tweaks.core.RecorderQuality
 import moe.xWey10.tweaks.core.Protocol
 import moe.xWey10.tweaks.core.RebootTarget
 import moe.xWey10.tweaks.core.TweakSettings
@@ -112,6 +118,36 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             }.start()
+        }
+    }
+
+    private val grantMicrophone = registerForActivityResult(ActivityResultContracts.RequestPermission()) { allowed ->
+        if (!allowed) Toast.makeText(this, R.string.recorder_permission_needed, Toast.LENGTH_LONG).show()
+        if (!isFinishing && !isDestroyed) render()
+    }
+
+    private val chooseRecorderFolder = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val uri = result.data?.data ?: return@registerForActivityResult
+        val flags = result.data?.flags ?: 0
+        val writeFlags = flags and (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+        if (writeFlags and Intent.FLAG_GRANT_WRITE_URI_PERMISSION == 0) {
+            Toast.makeText(this, R.string.recorder_folder_failed, Toast.LENGTH_LONG).show()
+            return@registerForActivityResult
+        }
+        runCatching {
+            contentResolver.takePersistableUriPermission(uri, writeFlags)
+            val label = runCatching {
+                val document = DocumentsContract.buildDocumentUriUsingTree(uri,
+                    DocumentsContract.getTreeDocumentId(uri))
+                contentResolver.query(document, arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME),
+                    null, null, null)?.use { cursor ->
+                    if (cursor.moveToFirst()) cursor.getString(0) else null
+                }
+            }.getOrNull().orEmpty().ifBlank { getString(R.string.recorder_custom_folder) }
+            saveTweaks(tweaks.current.copy(recorderDestination = RecorderDestination.CUSTOM,
+                recorderTreeUri = uri.toString(), recorderFolderLabel = label.take(100)))
+        }.onFailure {
+            Toast.makeText(this, R.string.recorder_folder_failed, Toast.LENGTH_LONG).show()
         }
     }
 
@@ -729,6 +765,11 @@ class MainActivity : AppCompatActivity() {
             })
             content.addView(divider())
         }
+        // Show recording options only when at least one Essential Key gesture starts the recorder.
+        if (tweaks.current.essentialKey.values.any { it == EssentialKeyCapture.SOUND_RECORDER }) {
+            addRecorderSettings(content)
+        }
+
         content.addView(text(getString(R.string.key_mapping_note), 14f, secondary = true).apply {
             setPadding(0, dp(16), 0, dp(10))
         })
@@ -794,6 +835,105 @@ class MainActivity : AppCompatActivity() {
                     LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) })
             }
         }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) })
+    }
+
+    private fun addRecorderSettings(content: LinearLayout) {
+        val settings = tweaks.current
+        content.addView(text(getString(R.string.recorder_settings_title), 17f).apply {
+            setPadding(0, dp(24), 0, dp(8))
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            ViewCompat.setAccessibilityHeading(this, true)
+        })
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            content.addView(actionRow(R.string.recorder_grant_permission,
+                getString(R.string.recorder_permission_needed)) {
+                grantMicrophone.launch(Manifest.permission.RECORD_AUDIO)
+            })
+            content.addView(divider())
+        }
+        val formats = RecorderFormat.entries
+        val formatNames = arrayOf(getString(R.string.recorder_format_aac),
+            getString(R.string.recorder_format_opus), getString(R.string.recorder_format_amr))
+        content.addView(actionRow(R.string.recorder_format,
+            formatNames[formats.indexOf(settings.recorderFormat)]) {
+            AlertDialog.Builder(this).setTitle(R.string.recorder_format)
+                .setSingleChoiceItems(formatNames, formats.indexOf(tweaks.current.recorderFormat)) { dialog, index ->
+                    dialog.dismiss()
+                    saveTweaks(tweaks.current.copy(recorderFormat = formats[index]))
+                }.setNegativeButton(android.R.string.cancel, null).show()
+        })
+        content.addView(divider())
+        if (settings.recorderFormat != RecorderFormat.AMR_3GP) {
+            val qualities = RecorderQuality.entries
+            val qualityNames = arrayOf(getString(R.string.recorder_quality_low),
+                getString(R.string.recorder_quality_normal), getString(R.string.recorder_quality_high))
+            content.addView(actionRow(R.string.recorder_quality,
+                qualityNames[qualities.indexOf(settings.recorderQuality)]) {
+                AlertDialog.Builder(this).setTitle(R.string.recorder_quality)
+                    .setSingleChoiceItems(qualityNames, qualities.indexOf(tweaks.current.recorderQuality)) { dialog, index ->
+                        dialog.dismiss()
+                        saveTweaks(tweaks.current.copy(recorderQuality = qualities[index]))
+                    }.setNegativeButton(android.R.string.cancel, null).show()
+            })
+            content.addView(divider())
+        }
+        val destinations = RecorderDestination.entries
+        val destinationNames = arrayOf(getString(R.string.recorder_folder_music),
+            getString(R.string.recorder_folder_recordings), getString(R.string.recorder_custom_folder))
+        val folderSummary = if (settings.recorderDestination == RecorderDestination.CUSTOM) {
+            settings.recorderFolderLabel.ifBlank { getString(R.string.recorder_custom_folder) }
+        } else destinationNames[destinations.indexOf(settings.recorderDestination)]
+        content.addView(actionRow(R.string.recorder_folder, folderSummary) {
+            AlertDialog.Builder(this).setTitle(R.string.recorder_folder)
+                .setSingleChoiceItems(destinationNames, destinations.indexOf(tweaks.current.recorderDestination)) { dialog, index ->
+                    dialog.dismiss()
+                    if (destinations[index] == RecorderDestination.CUSTOM) {
+                        chooseRecorderFolder.launch(Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                                Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+                        })
+                    } else {
+                        saveTweaks(tweaks.current.copy(recorderDestination = destinations[index]))
+                    }
+                }.setNegativeButton(android.R.string.cancel, null).show()
+        })
+        content.addView(divider())
+        content.addView(actionRow(R.string.recorder_filename, settings.recorderNameTemplate) {
+            editRecorderFilename()
+        })
+        content.addView(divider())
+        content.addView(text(getString(R.string.recorder_help), 14f, secondary = true).apply {
+            setPadding(0, dp(10), 0, dp(16))
+        })
+    }
+
+    private fun editRecorderFilename() {
+        val input = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            setSingleLine()
+            setText(tweaks.current.recorderNameTemplate)
+            setSelection(text.length)
+        }
+        val dialog = AlertDialog.Builder(this).setTitle(R.string.recorder_filename)
+            .setView(column().apply {
+                setPadding(dp(24), dp(8), dp(24), 0)
+                addView(text(getString(R.string.recorder_filename_help), 14f, secondary = true))
+                addView(input)
+            })
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.apply, null).create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val name = RecorderNaming.normalizeTemplate(input.text.toString())
+                if (input.text.length > 80) {
+                    input.error = getString(R.string.recorder_filename_long)
+                    return@setOnClickListener
+                }
+                saveTweaks(tweaks.current.copy(recorderNameTemplate = name))
+                dialog.dismiss()
+            }
+        }
+        dialog.show()
     }
 
     /** Select installed apps and exported activities only. Never bypass component export restrictions. */

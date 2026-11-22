@@ -1,57 +1,53 @@
 # Changelog
 
-## 0.2.18 — Stock reboot confirmation and status-bar fixes
+## 0.2.19 — Voice recording controls
 
-- Optional native-style SystemUIDialog confirmation for the stock Restart and Power off actions (separate toggles, disabled by default). Confirmed actions run the original OEM handler, preserving OEM authentication and power behavior; no root escalation.
-- Fixed both status-bar gestures potentially never installing: find dispatchTouchEvent in the view hierarchy rather than requiring a declaration on PhoneStatusBarView. Gesture hook filters to that view when the inherited framework method is shared.
-- Brightness gesture now applies temporary and persistent display brightness with SystemUI DisplayManager, with Settings.System fallback. Vertical shade gestures remain unmodified.
-- Voice recording starts through an invisible/translucent permission handoff. Recording continues in a microphone foreground service with required system indicator and notification; first use may still show the Android permission dialog.
-- Updated build-and-sign helper to emit v0.2.18 APK. Compile and on-device behavior have not been verified.
+- Voice recording no longer opens the Essential Tweaks app when triggered by Essential Key.
+- Added recording options when the voice recorder is assigned to a gesture: M4A/AAC, OGG/Opus or 3GP/AMR, audio quality, and save folder.
+- Added a folder picker for custom recording destinations and a filename template with date and time tokens.
+- Microphone permission is requested from Essential Tweaks settings instead of interrupting a button gesture.
 
+## 0.2.18 — Power menu confirmations and status bar
+
+- Added optional Nothing-style confirmation dialogs for the stock Restart and Power off actions, with separate switches.
+- Fixed status-bar swipe-to-adjust-brightness and double-tap-to-sleep gestures.
+- Voice recording now starts without opening a visible recorder screen. The microphone permission prompt and recording notification remain available as required by Android.
 
 ## 0.2.17 — Essential Key actions and status bar
 
-- Added installed-app and exported-Activity picker for each Essential Key gesture. No private activities or arbitrary Java methods are invoked.
-- Added audio recording by Essential Key: app-owned microphone foreground service, run-time microphone permission, and M4A/AAC output to `Music/EssentialTweaks`; a required recording notification provides Stop.
-- Added camera launch and notification shade expansion as additional key actions.
-- Added optional horizontal brightness swipe, native clock seconds and double-tap-to-sleep on the collapsed status bar.
-- Added local developer build-and-sign helper using an existing keystore. No signing secrets stored in source.
-- **Experimental/unverified on real device; Android SDK was unavailable in the editing environment.**
+- Added selection of an installed app or exported Activity for each Essential Key gesture.
+- Added audio recording on Essential Key press: tap again to stop; recordings are saved as M4A/AAC in `Music/EssentialTweaks`.
+- Added camera launch and notification shade expansion as key actions.
+- Added options for status-bar brightness swipe, seconds in the clock, and double-tap-to-sleep.
 
-## 0.2.16 — SystemUI-only power actions
+## 0.2.16 — Power actions without root
 
-- Removed the `su`/`svc` root-shell fallback for Recovery and Bootloader; the power menu now uses SystemUI's `PowerManager.reboot(reason)` only.
-- Missing `REBOOT`/`RECOVERY` system permissions show a clear in-menu message instead of requesting root or attempting a reboot; all permission and lock-state gates remain.
-- System UI restart still terminates only the injected SystemUI process and needs no root grant.
-- Removed the obsolete root-shell implementation and its tests; added permission-policy regression tests.
-- Essential Key's optional app-side root operations are unchanged. Device behavior is not verified by this source-only change.
+- Recovery and Bootloader actions now use system reboot permissions rather than requesting root.
+- If the required system permission is unavailable, the power menu displays an error instead of attempting to reboot.
+- Restarting System UI remains available without root.
 
 ## 0.2.15 — In-app update checks
 
-- Check the newest stable GitHub Release via `https://api.github.com/repos/xWey10/Essential-Tweaks/releases/latest` when the app opens (at most once per 24 hours after a successful check, with a one-hour retry window after errors).
-- Show a new-version link and manual check on the app home screen. An opt-out switch disables automatic checks.
-- No Android notifications, background workers, installer permissions or root access used for update checks.
-- The repo must be public with at least one published stable GitHub Release for the API to respond successfully; prereleases and draft releases are not included.
+- Added manual and automatic checks for new stable GitHub Releases.
+- New versions are announced on the app home screen with a link to the release.
+- Added a switch to disable automatic checks; no update notifications are posted.
 
 ## 0.2.14 — Restore stock Essential Key
 
-- Added an explicit **Restore original Essential Key** action. Uses root to re-enable Essential Space and Essential Recorder for user 0.
-- Once the apps are confirmed enabled, clears all custom Essential Key gesture bindings and returns hardware events to Nothing OS. Other tweak settings are preserved.
-- Added a confirmation dialog, operation-specific status messages and manual enable commands for root failures.
-- Requires device validation: stock key handling depends on Nothing OS and may need a restart.
+- Added a **Restore original Essential Key** action that re-enables Essential Space and Essential Recorder.
+- Restoring the stock key behavior clears custom Essential Key assignments while preserving other tweaks.
+- Added confirmation and error messages for restoring the key.
 
-## 0.2.13 — GitHub source release
+## 0.2.13 — Power menu wording
 
-- Removed ReSukiSU-specific text from power-menu settings, reboot errors, and the system-process fallback strings. Root implementation is unchanged.
-- Changed original project code licensing from Apache-2.0 to GPL-3.0-only, retaining third-party licenses.
-- Added repository documentation, public-build CI and tighter ignore rules; bumped `versionCode` to 16.
+- Removed ReSukiSU-specific wording from power-menu settings and error messages.
 
 ## 0.2.12
 
-- Charging metrics moved to the lock-screen settings section.
-- Essential Key supports press, double press, hold, press+hold and double press+hold with screenshot / screen recording actions.
-- Added hooks for System Framework and System UI.
+- Moved charging metrics into the lock-screen settings section.
+- Added screenshot and screen-recording actions for Essential Key gestures: press, double press, hold, press+hold and double press+hold.
+- Added support for System Framework and System UI hooks.
 
 ## Earlier releases
 
-Full historical notes for v0.2.0–0.2.12 are archived in [docs/RELEASE-NOTES-0.2.12.md](docs/RELEASE-NOTES-0.2.12.md).
+See [older release notes](docs/RELEASE-NOTES-0.2.12.md) for earlier app changes.

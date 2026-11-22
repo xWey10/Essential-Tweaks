@@ -29,19 +29,16 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:name=".recorder.RecorderActivity" android:exported="true" android:launchMode="singleTop"
-            android:permission="android.permission.STATUS_BAR"
-            android:theme="@style/Theme.EssentialTweaks.RecorderHandoff"
-            android:excludeFromRecents="true" />
+        <!-- Callable by SystemUI only (signature permission), never by ordinary apps. -->
         <service android:name=".recorder.RecorderService"
-            android:exported="false" android:foregroundServiceType="microphone" />
+            android:exported="true"
+            android:permission="android.permission.STATUS_BAR"
+            android:foregroundServiceType="microphone" />
         <provider
             android:name=".core.PrivateIconProvider"
             android:authorities="moe.xWey10.tweaks.private_icon"
             android:exported="true"
-            android:permission="android.permission.STATUS_BAR"
-            android:theme="@style/Theme.EssentialTweaks.RecorderHandoff"
-            android:excludeFromRecents="true" />
+            android:permission="android.permission.STATUS_BAR" />
         <meta-data android:name="xposedmodule" android:value="true" />
         <meta-data android:name="xposeddescription" android:value="@string/module_description" />
         <meta-data android:name="xposedminversion" android:value="93" />

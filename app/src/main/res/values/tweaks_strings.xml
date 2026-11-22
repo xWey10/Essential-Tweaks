@@ -89,4 +89,24 @@
     <string name="clock_seconds">Show seconds in status-bar clock</string>
     <string name="status_bar_note">Swipe horizontally along the collapsed status bar to change brightness. This switches automatic brightness to manual when the gesture ends. Vertical notification gestures should remain unchanged. Seconds update every second while the clock is visible. Both features depend on Nothing SystemUI hooks.</string>
     <string name="status_double_tap_sleep">Double-tap status bar to turn screen off</string>
+    <string name="recorder_settings_title">Voice recording</string>
+    <string name="recorder_grant_permission">Allow microphone access</string>
+    <string name="recorder_permission_needed">Allow microphone access here before using the Essential Key. No app window opens when recording.</string>
+    <string name="recorder_format">Audio format</string>
+    <string name="recorder_format_aac">M4A · AAC</string>
+    <string name="recorder_format_opus">OGG · Opus</string>
+    <string name="recorder_format_amr">3GP · AMR (voice, low quality)</string>
+    <string name="recorder_quality">Audio quality</string>
+    <string name="recorder_quality_low">Low · smaller files</string>
+    <string name="recorder_quality_normal">Standard</string>
+    <string name="recorder_quality_high">High · larger files</string>
+    <string name="recorder_folder">Save to</string>
+    <string name="recorder_folder_music">Music/EssentialTweaks</string>
+    <string name="recorder_folder_recordings">Recordings/EssentialTweaks</string>
+    <string name="recorder_custom_folder">Choose a folder…</string>
+    <string name="recorder_folder_failed">Unable to access the selected folder. Choose another folder.</string>
+    <string name="recorder_filename">Filename template</string>
+    <string name="recorder_filename_help">Use {date}, {time}, {datetime}, or {epoch}. File extension is added automatically.</string>
+    <string name="recorder_filename_long">Maximum 80 characters</string>
+    <string name="recorder_help">Tap the assigned Essential Key gesture to start recording, then again to save. The app stays closed; the Android microphone indicator and Stop notification remain visible. If Android blocks a background microphone service on your firmware, recording cannot start silently.</string>
 </resources>

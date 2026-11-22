@@ -9,6 +9,11 @@ import org.json.JSONObject
 
 enum class DotsMode { STOCK, CUSTOM, RANDOM }
 
+enum class RecorderFormat { AAC_M4A, OPUS_OGG, AMR_3GP }
+enum class RecorderQuality { LOW, NORMAL, HIGH }
+enum class RecorderDestination { MUSIC, RECORDINGS, CUSTOM }
+
+
 data class EssentialTarget(val packageName: String, val className: String = "")
 
 data class TweakSettings(
@@ -32,6 +37,12 @@ data class TweakSettings(
     val brightnessSwipe: Boolean = false,
     val clockSeconds: Boolean = false,
     val statusDoubleTapSleep: Boolean = false,
+    val recorderFormat: RecorderFormat = RecorderFormat.AAC_M4A,
+    val recorderQuality: RecorderQuality = RecorderQuality.NORMAL,
+    val recorderDestination: RecorderDestination = RecorderDestination.MUSIC,
+    val recorderTreeUri: String = "",
+    val recorderFolderLabel: String = "",
+    val recorderNameTemplate: String = "Essential-{datetime}",
 ) {
     val hasMetrics get() = voltage || current || power || temperature
 
@@ -55,6 +66,12 @@ data class TweakSettings(
         put("brightnessSwipe", brightnessSwipe)
         put("clockSeconds", clockSeconds)
         put("statusDoubleTapSleep", statusDoubleTapSleep)
+        put("recorderFormat", recorderFormat.name)
+        put("recorderQuality", recorderQuality.name)
+        put("recorderDestination", recorderDestination.name)
+        put("recorderTreeUri", recorderTreeUri)
+        put("recorderFolderLabel", recorderFolderLabel)
+        put("recorderNameTemplate", recorderNameTemplate)
         put("essentialTargets", JSONObject().apply {
             essentialTargets.forEach { (gesture, target) ->
                 put(gesture.name, JSONObject().apply {
@@ -103,6 +120,15 @@ data class TweakSettings(
                 brightnessSwipe = json.optBoolean("brightnessSwipe"),
                 clockSeconds = json.optBoolean("clockSeconds"),
                 statusDoubleTapSleep = json.optBoolean("statusDoubleTapSleep"),
+                recorderFormat = RecorderFormat.entries.firstOrNull { it.name == json.optString("recorderFormat") }
+                    ?: RecorderFormat.AAC_M4A,
+                recorderQuality = RecorderQuality.entries.firstOrNull { it.name == json.optString("recorderQuality") }
+                    ?: RecorderQuality.NORMAL,
+                recorderDestination = RecorderDestination.entries.firstOrNull { it.name == json.optString("recorderDestination") }
+                    ?: RecorderDestination.MUSIC,
+                recorderTreeUri = json.optString("recorderTreeUri").take(2000),
+                recorderFolderLabel = json.optString("recorderFolderLabel").take(100),
+                recorderNameTemplate = RecorderNaming.normalizeTemplate(json.optString("recorderNameTemplate", "Essential-{datetime}")),
                 essentialTargets = buildMap {
                     EssentialKeyGesture.entries.forEach { gesture ->
                         val target = targets?.optJSONObject(gesture.name) ?: return@forEach

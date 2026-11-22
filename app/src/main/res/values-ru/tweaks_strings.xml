@@ -89,4 +89,24 @@
     <string name="clock_seconds">Показывать секунды в часах</string>
     <string name="status_bar_note">Горизонтальный свайп по свёрнутой строке состояния меняет яркость. Автоматическая яркость переключается в ручной режим. Вертикальные жесты уведомлений должны сохраняться. Секунды обновляются каждую секунду, пока часы видимы. Работоспособность зависит от версии Nothing SystemUI.</string>
     <string name="status_double_tap_sleep">Двойное касание строки состояния для выключения экрана</string>
+    <string name="recorder_settings_title">Запись звука</string>
+    <string name="recorder_grant_permission">Разрешить доступ к микрофону</string>
+    <string name="recorder_permission_needed">Разреши доступ к микрофону здесь перед использованием Essential Key. Окно приложения при записи не открывается.</string>
+    <string name="recorder_format">Формат записи</string>
+    <string name="recorder_format_aac">M4A · AAC</string>
+    <string name="recorder_format_opus">OGG · Opus</string>
+    <string name="recorder_format_amr">3GP · AMR (речь, низкое качество)</string>
+    <string name="recorder_quality">Качество звука</string>
+    <string name="recorder_quality_low">Низкое · компактные файлы</string>
+    <string name="recorder_quality_normal">Обычное</string>
+    <string name="recorder_quality_high">Высокое · большие файлы</string>
+    <string name="recorder_folder">Куда сохранять</string>
+    <string name="recorder_folder_music">Music/EssentialTweaks</string>
+    <string name="recorder_folder_recordings">Recordings/EssentialTweaks</string>
+    <string name="recorder_custom_folder">Выбрать папку…</string>
+    <string name="recorder_folder_failed">Нет доступа к выбранной папке. Выбери другую.</string>
+    <string name="recorder_filename">Шаблон имени файла</string>
+    <string name="recorder_filename_help">Можно использовать {date}, {time}, {datetime}, {epoch}. Расширение добавляется автоматически.</string>
+    <string name="recorder_filename_long">Максимум 80 символов</string>
+    <string name="recorder_help">Нажми назначенный жест Essential Key для начала записи, нажми ещё раз для сохранения. Приложение не открывается; системный индикатор микрофона и уведомление «Остановить» остаются. Если прошивка запрещает запуск микрофона из фона, бесшумный запуск недоступен.</string>
 </resources>
