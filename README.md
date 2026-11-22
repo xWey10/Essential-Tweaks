@@ -4,7 +4,7 @@
 
 Essential Tweaks is an unofficial [LSPosed](https://github.com/LSPosed/LSPosed) module for Nothing OS on Android 16. It adds optional tweaks to the stock interface **without replacing System UI**.
 
-**Version:** 0.2.15 · **License:** [GPL-3.0-only](LICENSE) · **Status:** experimental
+**Version:** 0.2.18 · **License:** [GPL-3.0-only](LICENSE) · **Status:** experimental
 
 This project is not affiliated with or endorsed by Nothing or CMF. System hooks may stop working after an OS update; enable and test features individually.
 
@@ -24,8 +24,6 @@ This project is not affiliated with or endorsed by Nothing or CMF. System hooks 
 - A working `su` implementation for privileged operations, such as freeing/restoring Essential Key and some reboot actions. 
 
 **Reference device/configuration:** CMF Phone 2 Pro, build `Galaga-B4.1-260812-1729`. `NothingSystemUI.apk` package version: `16.0.0`, SHA-256: `7e0c584a22ca82000343a5bec356a6f0d2468cd377092d2d261dec05a92093ec`. 
-
-For implementation details and a test checklist, see [compatibility](docs/COMPATIBILITY.md), [validation](docs/VALIDATION.md) and [device tests](docs/DEVICE-TEST.md).
 
 ## Installation
 
