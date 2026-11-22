@@ -1,0 +1,16 @@
+Essential Tweaks
+Copyright (C) 2026 xWey10
+
+The project's original source code is licensed under the GNU General Public
+License version 3 only (GPL-3.0-only). See LICENSE.
+
+Third-party components keep their own licenses:
+- Gradle Wrapper scripts and binary: Gradle, Apache License 2.0.
+  A copy of this license is in LICENSES/Apache-2.0.txt.
+- AndroidX and Kotlin: respective upstream licenses; fetched at build time.
+- Xposed API: compile-only dependency; it is not packaged in the APK.
+
+Nothing and CMF are trademarks of their respective owners. This is an
+independent, unofficial module. No Nothing proprietary APKs, fonts or assets
+are distributed here. References to AOSP and other projects in docs/ are
+for technical background; their licensing remains unchanged.

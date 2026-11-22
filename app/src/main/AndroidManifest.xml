@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <!-- The explicit user-selected Activity picker needs installed-package visibility. -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+    <!-- Only our signed app can ask the dynamic SystemUI receiver for diagnostics. -->
+    <permission android:name="moe.xWey10.tweaks.permission.QUERY_STATUS"
+        android:protectionLevel="signature" />
+    <uses-permission android:name="moe.xWey10.tweaks.permission.QUERY_STATUS" />
+    <queries>
+        <package android:name="com.android.systemui" />
+        <package android:name="com.nothing.ntessentialrecorder" />
+        <package android:name="com.nothing.ntessentialspace" />
+    </queries>
+    <application
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:supportsRtl="true"
+        android:label="@string/app_name"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher"
+        android:theme="@style/Theme.EssentialTweaks">
+        <activity android:name=".ui.MainActivity" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity android:name=".recorder.RecorderActivity" android:exported="true" android:launchMode="singleTop"
+            android:permission="android.permission.STATUS_BAR"
+            android:theme="@style/Theme.EssentialTweaks.RecorderHandoff"
+            android:excludeFromRecents="true" />
+        <service android:name=".recorder.RecorderService"
+            android:exported="false" android:foregroundServiceType="microphone" />
+        <provider
+            android:name=".core.PrivateIconProvider"
+            android:authorities="moe.xWey10.tweaks.private_icon"
+            android:exported="true"
+            android:permission="android.permission.STATUS_BAR"
+            android:theme="@style/Theme.EssentialTweaks.RecorderHandoff"
+            android:excludeFromRecents="true" />
+        <meta-data android:name="xposedmodule" android:value="true" />
+        <meta-data android:name="xposeddescription" android:value="@string/module_description" />
+        <meta-data android:name="xposedminversion" android:value="93" />
+        <meta-data android:name="xposedsharedprefs" android:value="true" />
+        <meta-data android:name="xposedscope" android:resource="@array/xposed_scope" />
+    </application>
+</manifest>
