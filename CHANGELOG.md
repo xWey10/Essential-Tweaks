@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0 — Lock screen customization
+
+- Added the Android charge-time estimate and event-driven battery updates.
+- Added reorderable charging, battery, traffic and memory/processor rows above the fingerprint sensor.
+- Added size, vertical offset and digital styles with optional seconds for Nothing clocks.
+- Added app, settings and alarm targets for configured lock screen shortcuts.
+
 ## 0.2.19 — Voice recording controls
 
 - Voice recording no longer opens the Essential Tweaks app when triggered by Essential Key.

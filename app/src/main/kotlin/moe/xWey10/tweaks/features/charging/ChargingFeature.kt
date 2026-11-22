@@ -3,6 +3,7 @@
 
 package moe.xWey10.tweaks.features.charging
 
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -94,20 +95,49 @@ class ChargingFeature(private val loader: ClassLoader, private val tweaks: Tweak
         private var disposed = false
         private var reading = false
         private var loggedFailure = false
-        private var renderedSettings: TweakSettings? = null
-        private var renderedDozing: Boolean? = null
+        private var activeSettings: TweakSettings? = null
+        private var activeDozing: Boolean? = null
         private val battery = area.context.getSystemService(BatteryManager::class.java)
         private val powerManager = area.context.getSystemService(PowerManager::class.java)
         private val sample = Runnable { safely { sample() } }
 
+        private var listening = false
+        private var revision = 0L
+        private val widgets = LockWidgets()
+        private val firstRate = Runnable { refresh() }
+        private val events = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) = refresh()
+        }
+
+        private fun listen(enabled: Boolean) {
+            if (enabled == listening) return
+            if (enabled) {
+                area.context.registerReceiver(events, IntentFilter(Intent.ACTION_BATTERY_CHANGED).apply {
+                    addAction(Intent.ACTION_TIME_TICK)
+                    addAction(Intent.ACTION_SCREEN_OFF)
+                }, Context.RECEIVER_NOT_EXPORTED)
+            } else {
+                area.context.unregisterReceiver(events)
+                widgets.reset()
+            }
+            listening = enabled
+        }
+
         init { area.addOnAttachStateChangeListener(this) }
 
-        fun refresh() = safely {
+        fun refresh(): Unit = safely {
+            revision++
             if (!canShow()) {
                 hide()
                 return@safely
             }
-            if (renderedSettings != tweaks.settings || renderedDozing != dozing()) hide()
+            if (activeSettings != tweaks.settings || activeDozing != dozing()) {
+                hide()
+                activeSettings = tweaks.settings
+                activeDozing = dozing()
+                if (tweaks.settings.networkWidget && !dozing()) main.postDelayed(firstRate, 1500)
+            }
+            listen(true)
             if (!reading && !main.hasCallbacks(sample)) main.post(sample)
         }
 
@@ -116,6 +146,8 @@ class ChargingFeature(private val loader: ClassLoader, private val tweaks: Tweak
 
         fun dispose() = safely {
             disposed = true
+            main.removeCallbacks(firstRate)
+            listen(false)
             area.removeOnAttachStateChangeListener(this)
             stopPositionUpdates()
             row?.let { (it.parent as? ViewGroup)?.removeView(it) }
@@ -126,7 +158,8 @@ class ChargingFeature(private val loader: ClassLoader, private val tweaks: Tweak
         private fun canShow(): Boolean {
             val settings = tweaks.settings
             if (disposed || !area.isAttachedToWindow || !visible() ||
-                !settings.chargingEnabled || !settings.hasMetrics) return false
+                !(settings.chargingEnabled && settings.hasMetrics || !dozing() &&
+                    (settings.networkWidget || settings.batteryWidget || settings.systemWidget))) return false
             return if (dozing()) {
                 settings.aod && area.javaClass.name == "com.android.systemui.keyguard.ui.view.KeyguardIndicationArea"
             } else {
@@ -135,11 +168,13 @@ class ChargingFeature(private val loader: ClassLoader, private val tweaks: Tweak
         }
 
         private fun hide() {
+            listen(false)
             main.removeCallbacks(sample)
             row?.visibility = View.GONE
             stopPositionUpdates()
-            renderedSettings = null
-            renderedDozing = null
+            activeSettings = null
+            activeDozing = null
+            main.removeCallbacks(firstRate)
         }
 
         private fun sample() {
@@ -151,20 +186,24 @@ class ChargingFeature(private val loader: ClassLoader, private val tweaks: Tweak
             val settings = tweaks.settings
             val onAod = dozing()
             val context = area.context
+            val version = revision
             reading = true
             worker.execute {
-                val metrics = runCatching { readMetrics(context, battery, settings) }.getOrNull()
+                val text = runCatching {
+                    val status = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+                    val locale = context.resources.configuration.locales[0]
+                    val chargingText = if (settings.chargingEnabled && settings.hasMetrics && status != null)
+                        readMetrics(status, battery, settings)?.format(settings, locale).orEmpty() else ""
+                    if (onAod) chargingText else widgets.format(context, status, settings, chargingText)
+                }.getOrDefault("")
                 main.post {
                     reading = false
                     safely {
                         if (!canShow()) {
                             hide()
                         } else if (settings == tweaks.settings && onAod == dozing()) {
-                            val locale = context.resources.configuration.locales[0]
-                            render(metrics?.format(settings, locale).orEmpty(), onAod)
-                            renderedSettings = settings
-                            renderedDozing = onAod
-                            main.postDelayed(sample, if (onAod) 20_000L else 4_000L)
+                            render(text, onAod)
+                            if (revision != version) main.post(sample)
                         } else {
                             main.post(sample)
                         }
@@ -190,7 +229,7 @@ class ChargingFeature(private val loader: ClassLoader, private val tweaks: Tweak
                 visibility = View.GONE
                 alpha = 0f
                 gravity = Gravity.CENTER
-                maxLines = 2
+                maxLines = 8
                 accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_NONE
                 setTextDirection(View.TEXT_DIRECTION_LTR)
                 host.addView(this, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
@@ -223,7 +262,7 @@ class ChargingFeature(private val loader: ClassLoader, private val tweaks: Tweak
             sensor.getLocationInWindow(sensorLocation)
             view.getLocationInWindow(rowLocation)
             val density = area.resources.displayMetrics.density
-            val aboveGap = (8f * density).roundToInt()
+            val aboveGap = ((if (dozing()) 8 else tweaks.settings.layoutGap) * density).roundToInt()
             val belowGap = (4f * density).roundToInt()
             val metricsBottom = rowLocation[1] + view.height
             val metricsTranslation = view.translationY + sensorLocation[1] - aboveGap - metricsBottom
@@ -271,8 +310,7 @@ class ChargingFeature(private val loader: ClassLoader, private val tweaks: Tweak
         }
     }
 
-    private fun readMetrics(context: Context, battery: BatteryManager?, settings: TweakSettings): BatteryMetrics? {
-        val status = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED)) ?: return null
+    private fun readMetrics(status: Intent, battery: BatteryManager?, settings: TweakSettings): BatteryMetrics? {
         if (!status.getBooleanExtra(BatteryManager.EXTRA_PRESENT, true)) return null
         val charging = status.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) != 0 &&
             status.getIntExtra(BatteryManager.EXTRA_STATUS, BatteryManager.BATTERY_STATUS_UNKNOWN) ==
@@ -287,6 +325,7 @@ class ChargingFeature(private val loader: ClassLoader, private val tweaks: Tweak
             deciCelsius = status.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, Int.MIN_VALUE)
                 .takeUnless { it == Int.MIN_VALUE },
             charging = charging,
+            remainingMillis = if (settings.eta && charging) runCatching { battery?.computeChargeTimeRemaining() }.getOrNull() else null,
         )
     }
 }

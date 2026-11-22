@@ -39,4 +39,13 @@ class BatteryMetricsTest {
         assertEquals("", BatteryMetrics(4000, -180000, 280, false)
             .format(all.copy(chargingOnly = true), Locale.US))
     }
+
+    @Test fun estimateRoundsUpAndOnlyAppearsDuringCharging() {
+        val selected = all.copy(voltage = false, current = false, temperature = false, power = false, eta = true)
+        val battery = BatteryMetrics(null, null, null, true, 3_600_001)
+        assertEquals("≈ 1:01 → 100%", battery.format(selected, Locale.US))
+        assertEquals("", battery.copy(remainingMillis = -1).format(selected, Locale.US))
+        assertEquals("", battery.copy(charging = false).format(selected, Locale.US))
+        assertEquals("", battery.format(selected.copy(eta = false), Locale.US))
+    }
 }

@@ -28,6 +28,18 @@ data class TweakSettings(
     val current: Boolean = true,
     val power: Boolean = true,
     val temperature: Boolean = true,
+    val eta: Boolean = false,
+    val networkWidget: Boolean = false,
+    val batteryWidget: Boolean = false,
+    val systemWidget: Boolean = false,
+    val widgetOrder: String = "cbns",
+    val layoutGap: Int = 8,
+    val clockScale: Int = 100,
+    val clockOffset: Int = 0,
+    val lockStyle: Int = 0,
+    val lockSeconds: Boolean = false,
+    val leftSlot: String = "",
+    val rightSlot: String = "",
     val aod: Boolean = false,
     val doubleTapWake: Boolean = false,
     val doubleTapSleep: Boolean = false,
@@ -44,7 +56,7 @@ data class TweakSettings(
     val recorderFolderLabel: String = "",
     val recorderNameTemplate: String = "Essential-{datetime}",
 ) {
-    val hasMetrics get() = voltage || current || power || temperature
+    val hasMetrics get() = voltage || current || power || temperature || eta
 
     fun encode() = JSONObject().apply {
         put("schema", 1)
@@ -59,6 +71,18 @@ data class TweakSettings(
         put("current", current)
         put("power", power)
         put("temperature", temperature)
+        put("eta", eta)
+        put("networkWidget", networkWidget)
+        put("batteryWidget", batteryWidget)
+        put("systemWidget", systemWidget)
+        put("widgetOrder", widgetOrder)
+        put("layoutGap", layoutGap)
+        put("clockScale", clockScale)
+        put("clockOffset", clockOffset)
+        put("lockStyle", lockStyle)
+        put("lockSeconds", lockSeconds)
+        put("leftSlot", leftSlot)
+        put("rightSlot", rightSlot)
         put("aod", aod)
         put("doubleTapWake", doubleTapWake)
         put("doubleTapSleep", doubleTapSleep)
@@ -113,6 +137,18 @@ data class TweakSettings(
                 current = json.optBoolean("current", true),
                 power = json.optBoolean("power", true),
                 temperature = json.optBoolean("temperature", true),
+                eta = json.optBoolean("eta", false),
+                networkWidget = json.optBoolean("networkWidget", false),
+                batteryWidget = json.optBoolean("batteryWidget", false),
+                systemWidget = json.optBoolean("systemWidget", false),
+                widgetOrder = json.optString("widgetOrder", "cbns").takeIf { it.length == 4 && it.toSet() == "cbns".toSet() } ?: "cbns",
+                layoutGap = json.optInt("layoutGap", 8).coerceIn(8, 56),
+                clockScale = json.optInt("clockScale", 100).coerceIn(65, 115),
+                clockOffset = json.optInt("clockOffset", 0).coerceIn(-24, 24),
+                lockStyle = json.optInt("lockStyle", 0).coerceIn(0, 2),
+                lockSeconds = json.optBoolean("lockSeconds", false),
+                leftSlot = json.optString("leftSlot", "").take(200),
+                rightSlot = json.optString("rightSlot", "").take(200),
                 aod = json.optBoolean("aod"),
                 doubleTapWake = json.optBoolean("doubleTapWake"),
                 doubleTapSleep = json.optBoolean("doubleTapSleep"),

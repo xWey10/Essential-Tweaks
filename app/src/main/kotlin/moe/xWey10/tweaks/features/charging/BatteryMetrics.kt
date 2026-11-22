@@ -11,6 +11,7 @@ internal data class BatteryMetrics(
     val microamps: Long?,
     val deciCelsius: Int?,
     val charging: Boolean,
+    val remainingMillis: Long? = null,
 ) {
     fun format(settings: TweakSettings, locale: Locale): String {
         if (settings.chargingOnly && !charging) return ""
@@ -26,6 +27,10 @@ internal data class BatteryMetrics(
             }
             if (settings.temperature && deciCelsius != null) {
                 add(String.format(locale, "%.1f\u00a0°C", deciCelsius / 10.0))
+            }
+            if (settings.eta && charging && remainingMillis != null && remainingMillis > 0) {
+                val minutes = (remainingMillis - 1) / 60_000 + 1
+                add(String.format(locale, "≈ %d:%02d → 100%%", minutes / 60, minutes % 60))
             }
         }.joinToString("  ·  ")
     }

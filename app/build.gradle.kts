@@ -13,8 +13,8 @@ android {
         applicationId = "moe.xWey10.tweaks"
         minSdk = 36
         targetSdk = 36
-        versionCode = 22
-        versionName = "0.2.19"
+        versionCode = 23
+        versionName = "0.3.0"
     }
     buildTypes {
         release {

@@ -293,6 +293,7 @@ class MainActivity : AppCompatActivity() {
                 ViewCompat.setAccessibilityHeading(this, true)
             })
             addChargingSettings(content)
+            addLockSettings(content)
         } else if (page == Page.ESSENTIAL_KEY) {
             addEssentialKey(content)
         } else if (page == Page.STATUS_BAR) {
@@ -522,6 +523,79 @@ class MainActivity : AppCompatActivity() {
             })
             content.addView(divider())
         }
+    }
+
+    private fun addLockSettings(content: LinearLayout) {
+        val s = tweaks.current
+        fun toggle(title: Int, value: Boolean, change: (Boolean) -> TweakSettings) {
+            content.addView(toggleRow(title, value) { saveTweaks(change(it)) })
+        }
+        fun choice(title: Int, names: List<String>, selected: Int, select: (Int) -> Unit) {
+            content.addView(actionRow(title, names.getOrNull(selected)) {
+                AlertDialog.Builder(this).setTitle(title)
+                    .setSingleChoiceItems(names.toTypedArray(), selected) { dialog, index ->
+                        dialog.dismiss()
+                        select(index)
+                    }.setNegativeButton(android.R.string.cancel, null).show()
+            })
+        }
+        fun number(title: Int, values: List<Int>, value: Int, unit: String, change: (Int) -> TweakSettings) =
+            choice(title, values.map { "$it $unit" }, values.indexOf(value)) { saveTweaks(change(values[it])) }
+
+        fun heading(title: Int) {
+            content.addView(text(getString(title), 15f, secondary = true).apply {
+                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                setPadding(0, dp(24), 0, dp(4))
+                ViewCompat.setAccessibilityHeading(this, true)
+            })
+        }
+        toggle(R.string.lock_eta, s.eta) { tweaks.current.copy(eta = it) }
+        content.addView(divider())
+        heading(R.string.lock_widgets)
+        toggle(R.string.lock_net, s.networkWidget) { tweaks.current.copy(networkWidget = it) }
+        toggle(R.string.lock_bat, s.batteryWidget) { tweaks.current.copy(batteryWidget = it) }
+        toggle(R.string.lock_sys, s.systemWidget) { tweaks.current.copy(systemWidget = it) }
+        heading(R.string.lock_layout)
+        val rows = mapOf('c' to R.string.charging_info, 'b' to R.string.lock_bat,
+            'n' to R.string.lock_net, 's' to R.string.lock_sys)
+        val order = s.widgetOrder
+        val names = order.map { getString(rows.getValue(it)) }
+        content.addView(actionRow(R.string.lock_order, names.joinToString(" · ")) {
+            AlertDialog.Builder(this).setTitle(R.string.lock_move).setItems(names.toTypedArray()) { _, from ->
+                AlertDialog.Builder(this).setTitle(R.string.lock_position)
+                    .setItems(names.indices.map { (it + 1).toString() }.toTypedArray()) { _, to ->
+                        val reordered = order.toMutableList()
+                        reordered.add(to, reordered.removeAt(from))
+                        saveTweaks(tweaks.current.copy(widgetOrder = reordered.joinToString("")))
+                    }.show()
+            }.show()
+        })
+        number(R.string.lock_gap, listOf(8, 16, 32, 56), s.layoutGap, "dp") { tweaks.current.copy(layoutGap = it) }
+        content.addView(divider())
+        heading(R.string.lock_clock)
+        number(R.string.lock_scale, listOf(65, 80, 90, 100, 110, 115), s.clockScale, "%") { tweaks.current.copy(clockScale = it) }
+        number(R.string.lock_offset, listOf(-24, -12, 0, 12, 24), s.clockOffset, "dp") { tweaks.current.copy(clockOffset = it) }
+        choice(R.string.lock_style, listOf(getString(R.string.lock_native), "Sans", "Mono"), s.lockStyle) {
+            saveTweaks(tweaks.current.copy(lockStyle = it))
+        }
+        toggle(R.string.lock_seconds, s.lockSeconds) { tweaks.current.copy(lockSeconds = it) }
+        content.addView(divider())
+        heading(R.string.lock_shortcuts)
+        fun slot(title: Int, current: String, change: (String) -> TweakSettings) {
+            val keys = listOf("", ":settings", ":alarms")
+            val namesList = listOf(R.string.lock_native, R.string.lock_settings, R.string.lock_alarms,
+                R.string.key_pick_app).map(::getString)
+            val summary = namesList.getOrNull(keys.indexOf(current)) ?: current
+            content.addView(actionRow(title, summary) {
+                AlertDialog.Builder(this).setTitle(title).setItems(namesList.toTypedArray()) { _, index ->
+                    if (index < keys.size) saveTweaks(change(keys[index]))
+                    else chooseTarget(EssentialKeyCapture.LAUNCH_APP) { saveTweaks(change(it.packageName)) }
+                }.show()
+            })
+        }
+        slot(R.string.lock_start, s.leftSlot) { tweaks.current.copy(leftSlot = it) }
+        slot(R.string.lock_end, s.rightSlot) { tweaks.current.copy(rightSlot = it) }
+        content.addView(text(getString(R.string.lock_note), 14f, secondary = true))
     }
 
     private fun addChargingSettings(content: LinearLayout) {
@@ -937,7 +1011,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     /** Select installed apps and exported activities only. Never bypass component export restrictions. */
-    private fun chooseKeyTarget(gesture: EssentialKeyGesture, chosen: EssentialKeyCapture) {
+    private fun chooseKeyTarget(gesture: EssentialKeyGesture, chosen: EssentialKeyCapture) =
+        chooseTarget(chosen) { saveKeyTarget(gesture, chosen, it) }
+
+    private fun chooseTarget(chosen: EssentialKeyCapture, select: (EssentialTarget) -> Unit) {
         val pm = packageManager
         val apps = pm.getInstalledApplications(PackageManager.ApplicationInfoFlags.of(0))
             .filter { it.enabled && (chosen == EssentialKeyCapture.LAUNCH_ACTIVITY ||
@@ -951,7 +1028,7 @@ class MainActivity : AppCompatActivity() {
         AlertDialog.Builder(this).setTitle(R.string.key_pick_app).setItems(labels) { _, index ->
             val pkg = apps[index].packageName
             if (chosen == EssentialKeyCapture.LAUNCH_APP) {
-                saveKeyTarget(gesture, chosen, EssentialTarget(pkg))
+                select(EssentialTarget(pkg))
             } else {
                 val activities = runCatching {
                     pm.getPackageInfo(pkg, PackageManager.PackageInfoFlags.of(PackageManager.GET_ACTIVITIES.toLong()))
@@ -964,7 +1041,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 AlertDialog.Builder(this).setTitle(R.string.key_pick_activity)
                     .setItems(activities.map { "${it.loadLabel(pm)} (${it.name})" }.toTypedArray()) { _, activityIndex ->
-                        saveKeyTarget(gesture, chosen, EssentialTarget(pkg, activities[activityIndex].name))
+                        select(EssentialTarget(pkg, activities[activityIndex].name))
                     }.setNegativeButton(android.R.string.cancel, null).show()
             }
         }.setNegativeButton(android.R.string.cancel, null).show()

@@ -1,0 +1,24 @@
+<resources>
+    <string name="lock_eta">Estimated time to full</string>
+    <string name="lock_net">Network speed</string>
+    <string name="lock_bat">Battery level and connection</string>
+    <string name="lock_sys">Memory and processor</string>
+    <string name="lock_order">Layout · row order</string>
+    <string name="lock_move">Move a row</string>
+    <string name="lock_position">New position from the top</string>
+    <string name="lock_gap">Gap above fingerprint sensor</string>
+    <string name="lock_scale">Clock size</string>
+    <string name="lock_offset">Clock vertical offset</string>
+    <string name="lock_style">Clock style</string>
+    <string name="lock_seconds">Seconds on digital clock</string>
+    <string name="lock_native">System default</string>
+    <string name="lock_settings">Open settings</string>
+    <string name="lock_alarms">Show alarms</string>
+    <string name="lock_start">Start shortcut</string>
+    <string name="lock_end">End shortcut</string>
+    <string name="lock_note">Assign a stock shortcut to each slot in Nothing OS first. Its icon and gesture are retained. Digital styles and seconds require a drawn Nothing face such as NDot. Composite weather faces keep their native content. Traffic is averaged between system updates. The charge estimate appears when Android supplies it.</string>
+    <string name="lock_widgets">Widgets</string>
+    <string name="lock_layout">Layout editor</string>
+    <string name="lock_clock">Clock</string>
+    <string name="lock_shortcuts">Bottom shortcuts</string>
+</resources>

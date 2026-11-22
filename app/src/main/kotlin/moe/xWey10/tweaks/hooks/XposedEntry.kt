@@ -19,6 +19,8 @@ import moe.xWey10.tweaks.features.essentialkey.EssentialKeyPolicy
 import moe.xWey10.tweaks.features.essentialkey.EssentialKeySystemUi
 import moe.xWey10.tweaks.features.fingerprint.FingerprintFeature
 import moe.xWey10.tweaks.features.lockscreen.DoubleTapSleep
+import moe.xWey10.tweaks.features.lockscreen.LockClock
+import moe.xWey10.tweaks.features.lockscreen.LockShortcuts
 import moe.xWey10.tweaks.features.lockscreen.DoubleTapWake
 import moe.xWey10.tweaks.features.powermenu.PowerMenuFeature
 import moe.xWey10.tweaks.features.screenshot.ScreenshotFeature
@@ -52,6 +54,8 @@ class XposedEntry : IXposedHookLoadPackage, IXposedHookZygoteInit {
             TweakReader().also { reader ->
                 FingerprintFeature(param.classLoader, reader).install()
                 ChargingFeature(param.classLoader, reader).install()
+                LockClock(param.classLoader, reader).install()
+                LockShortcuts(param.classLoader, reader).install()
                 DoubleTapWake(param.classLoader, reader).install()
                 DoubleTapSleep(param.classLoader, reader).install()
                 StatusBarTweaks(param.classLoader, reader).install()

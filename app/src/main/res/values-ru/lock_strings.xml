@@ -1,0 +1,24 @@
+<resources>
+    <string name="lock_eta">Примерное время до 100%</string>
+    <string name="lock_net">Скорость сети</string>
+    <string name="lock_bat">Уровень батареи и подключение питания</string>
+    <string name="lock_sys">Память и процессор</string>
+    <string name="lock_order">Расположение строк</string>
+    <string name="lock_move">Какую строку переместить?</string>
+    <string name="lock_position">Новая позиция сверху</string>
+    <string name="lock_gap">Отступ над отпечатком</string>
+    <string name="lock_scale">Размер часов</string>
+    <string name="lock_offset">Смещение часов по вертикали</string>
+    <string name="lock_style">Стиль часов</string>
+    <string name="lock_seconds">Секунды на цифровых часах</string>
+    <string name="lock_native">Как в системе</string>
+    <string name="lock_settings">Открыть настройки</string>
+    <string name="lock_alarms">Открыть будильники</string>
+    <string name="lock_start">Начальная кнопка</string>
+    <string name="lock_end">Конечная кнопка</string>
+    <string name="lock_note">Сначала включите нужные нижние кнопки в Nothing OS. У них сохраняются штатные значки и жесты. Цифровые стили и секунды доступны на рисованных часах Nothing, например NDot. На циферблатах с погодой сохраняется штатное содержимое. Скорость сети усредняется между системными обновлениями. Время зарядки появляется, когда Android передаёт оценку.</string>
+    <string name="lock_widgets">Виджеты</string>
+    <string name="lock_layout">Редактор расположения</string>
+    <string name="lock_clock">Часы</string>
+    <string name="lock_shortcuts">Нижние кнопки</string>
+</resources>
